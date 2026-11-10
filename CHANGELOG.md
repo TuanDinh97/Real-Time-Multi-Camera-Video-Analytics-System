@@ -18,3 +18,5 @@ phiên bản theo [Semantic Versioning](https://semver.org/).
 
 ### Removed
 - File trọng số model và các file sinh tự động khỏi git.
+- Model cấu hình camera (Pydantic): kiểm tra kiểu, giới hạn giá trị, từ chối trường lạ.
+- Model vùng và vùng loại trừ: kiểm tra đa giác (ít nhất 3 điểm, không tự cắt), id vùng không trùng trong một camera.
