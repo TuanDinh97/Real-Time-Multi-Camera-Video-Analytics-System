@@ -26,8 +26,8 @@ Cập nhật lần cuối: 10/11/2026.
 | Kiểm tra | Lệnh | Kết quả |
 |---|---|---|
 | Docker thấy GPU | `docker run --rm --gpus all ubuntu nvidia-smi` | Đạt (10/11/2026): container thấy RTX 5050, driver 610.43.02, CUDA 13.3 |
-| Compose thấy GPU | `docker compose -f ~/gpu-check.yaml up` | Đạt (10/11/2026): torch 2.15.0+cu132, CUDA 13.2|
-| PyTorch trên host dùng được GPU | `python -c "import torch; print(torch.__version__, torch.cuda.is_available(), torch.version.cuda, torch.cuda.get_device_name(0))"` | Chưa chạy |
+| Compose thấy GPU | `docker compose -f ~/gpu-check.yaml up` | Chưa chạy |
+| PyTorch trên host dùng được GPU | `python -c "import torch; print(torch.__version__, torch.cuda.is_available(), torch.version.cuda, torch.cuda.get_device_name(0))"` | Đạt (10/11/2026): torch 2.15.0+cu132, CUDA 13.2 |
 
 ## Ràng buộc phiên bản CUDA
 
