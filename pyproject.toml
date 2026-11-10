@@ -8,7 +8,9 @@ version = "0.1.0.dev0"
 description = "Indoor occupancy and space utilization from camera streams"
 readme = "README.md"
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "pydantic>=2.14.3",
+]
 
 [project.optional-dependencies]
 # Công cụ dev và export model; KHÔNG có trong image production (spec D7)
@@ -53,6 +55,7 @@ ignore = ["RUF001", "RUF002", "RUF003"]  # cho phép tiếng Việt trong chuỗ
 [tool.mypy]
 strict = true
 files = ["src", "tests"]
+plugins = ["pydantic.mypy"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
