@@ -36,6 +36,3 @@ with dai.Pipeline() as pipeline:
             break
 
 cv2.destroyAllWindows()
-
-
-

@@ -1,9 +1,9 @@
-
 import time
+
 import cv2
-import depthai as dai
 import torch
 from ultralytics import YOLO
+
 from occ.tools.oak_source import OAKVideoSource
 
 device = "cuda:0" if torch.cuda.is_available() else "cpu"
@@ -26,7 +26,7 @@ with OAKVideoSource() as source:
             classes=[0],
             conf=0.35,
             imgsz=640,
-            verbose=False
+            verbose=False,
         )[0]
 
         inference_ms = (time.perf_counter() - start) * 1000
@@ -41,7 +41,9 @@ with OAKVideoSource() as source:
             f"FPS: {fps:.1f} | Track: {inference_ms:.1f} ms",
             (10, 30),
             cv2.FONT_HERSHEY_SIMPLEX,
-            0.6, (0, 255, 0), 2
+            0.6,
+            (0, 255, 0),
+            2,
         )
 
         cv2.imshow("OAK - YOLO + ByteTrack", annotated)
