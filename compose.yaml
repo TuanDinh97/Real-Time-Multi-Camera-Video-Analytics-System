@@ -1,0 +1,16 @@
+
+services:
+  mediamtx:
+    image: bluenviron/mediamtx:1
+    restart: unless-stopped
+    environment:
+      MTX_RTSPTRANSPORTS: tcp
+    ports:
+      - "8554:8554"
+  worker:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.worker
+    gpus: all
+    depends_on:
+      - mediamtx
