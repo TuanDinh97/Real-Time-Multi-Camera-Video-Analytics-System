@@ -4,7 +4,7 @@ import cv2
 import depthai as dai
 import torch
 from ultralytics import YOLO
-from mcva.ingest.oak_source import OAKVideoSource
+from occ.tools.oak_source import OAKVideoSource
 
 device = "cuda:0" if torch.cuda.is_available() else "cpu"
 print("Inference device:", device)
