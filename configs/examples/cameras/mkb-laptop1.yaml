@@ -1,0 +1,18 @@
+schema_version: 1
+camera_id: mkb-laptop1
+source: rtsp://mediamtx:8554/mkb-laptop1
+sample_fps: 2
+detector: {conf: 0.30, min_box_h: 24}
+exclusions: []
+zones:
+  - id: mkb-head-room
+    space_id: main-room
+    group: room
+    kind: room
+    capacity: 6
+    assign: overlap
+    overlap_min: 0.3
+    polygon: [[20,20],[1260,20],[1260,700],[20,700]]
+seat: {t_in_s: 10, grace_s: 60, min_session_s: 30}
+tracking: {enabled: false}
+door_counter: {enabled: false}

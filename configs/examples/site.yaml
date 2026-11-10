@@ -1,0 +1,26 @@
+schema_version: 1
+site:
+  id: itmo-mkb-floor4
+  name: "MKB ITMO - Floor 4"
+  timezone: Europe/Moscow
+spaces:
+  - {id: main-room, name: "mkb_header", capacity: 6}
+  - {id: room-01,   name: "mkb_working_space", capacity: 16}
+opening_hours:
+  mon-fri: ["07:30-21:00"]
+  sat:     ["08:00-17:00"]
+  sun:     []
+holidays: ["2027-01-01"]
+engine:
+  backend: ort-cuda            # ort-cuda | ort-cpu | torch
+  model: /models/yolo11s-b8.onnx
+  imgsz: 640
+  fp16: true
+  max_batch: 8
+  batch_wait_ms: 50
+retention:
+  occupancy_10s_days: 30
+  occupancy_1m_days: 400
+  sessions_days: 400
+privacy:
+  debug_save_frames: false     # refused when OCC_ENV=production
