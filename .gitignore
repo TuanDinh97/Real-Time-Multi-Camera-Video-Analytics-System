@@ -1,1 +1,15 @@
+# Python
 .venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# Trọng số / model export: nặng và tải lại được
+*.pt
+*.onnx
+*.engine
+
+# Dữ liệu và kết quả chạy
+data/
+outputs/
+runs/

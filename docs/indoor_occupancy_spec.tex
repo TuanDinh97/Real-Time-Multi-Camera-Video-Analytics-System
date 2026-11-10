@@ -1,0 +1,2190 @@
+% !TEX program = xelatex
+% ============================================================
+%  Indoor Occupancy & Space Utilization System
+%  Đặc tả bài toán, kiến trúc và lộ trình từ A đến Z tới phần mềm triển khai được
+%  Biên dịch: xelatex indoor_occupancy_spec.tex (chạy 2 lần để có mục lục).
+%  File độc lập: không cần file con hay hình ảnh ngoài. Trên Overleaf, chọn compiler XeLaTeX.
+%  Font: Inter và Liberation Mono; nếu máy không có, tự chuyển sang Latin Modern.
+% ============================================================
+\documentclass[10pt,a4paper,oneside,openany]{report}
+% ===== begin preamble =====
+\usepackage[a4paper,left=21mm,right=21mm,top=24mm,bottom=24mm,headheight=14pt,headsep=8mm,footskip=11mm]{geometry}
+\usepackage{fontspec}
+\usepackage{polyglossia}
+\setmainlanguage{vietnamese}
+\setotherlanguage{english}
+
+% Font: Inter + Liberation Mono nếu có; nếu không, Latin Modern (có sẵn trong TeX Live/MiKTeX).
+\IfFontExistsTF{Inter}{%
+  \setmainfont{Inter}[BoldFont={Inter SemiBold}, ItalicFont={Inter Italic}, BoldItalicFont={Inter SemiBold Italic},
+                      Scale=0.93, Numbers=Lining, Contextuals=NoAlternate]
+  \setsansfont{Inter}[BoldFont={Inter Bold}, ItalicFont={Inter Italic}, BoldItalicFont={Inter Bold Italic}, Scale=0.93, Contextuals=NoAlternate]
+}{%
+  \setmainfont{Latin Modern Sans}
+  \setsansfont{Latin Modern Sans}
+}
+\IfFontExistsTF{Inter Display}{%
+  \newfontfamily\displayfont{Inter Display SemiBold}[BoldFont={Inter Display Bold}, Contextuals=NoAlternate]
+  \newfontfamily\displaylight{Inter Display Light}[BoldFont={Inter Display Medium}, Contextuals=NoAlternate]
+}{%
+  \newfontfamily\displayfont{Latin Modern Sans}[BoldFont={Latin Modern Sans Demi Cond}]
+  \newfontfamily\displaylight{Latin Modern Sans}
+}
+\IfFontExistsTF{Liberation Mono}{\setmonofont{Liberation Mono}[Scale=0.84]}{\setmonofont{Latin Modern Mono}}
+
+\usepackage{amsmath}
+\usepackage{unicode-math}
+\setmathfont{Latin Modern Math}
+
+\usepackage{microtype}
+\usepackage[dvipsnames,table]{xcolor}
+\usepackage{graphicx}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,shapes.geometric,shapes.misc,fit,calc,backgrounds,decorations.pathreplacing,patterns}
+\usepackage{booktabs,tabularx,longtable,xltabular,array,multirow,makecell}
+\usepackage{enumitem}
+\usepackage{caption}
+\usepackage{float}
+\usepackage{needspace}
+\usepackage{csquotes}
+\DeclareQuoteAlias{english}{vietnamese}
+\usepackage{ragged2e}
+\usepackage[most]{tcolorbox}
+\usepackage{listings}
+\usepackage{scrlayer-scrpage}
+\usepackage{titlesec}
+\usepackage{xurl}
+\usepackage[hidelinks=false]{hyperref}
+\usepackage{bookmark}
+
+% ---------- colours ----------
+\definecolor{ink}{HTML}{1B1F24}
+\definecolor{muted}{HTML}{5B6573}
+\definecolor{accent}{HTML}{0F6B5C}
+\definecolor{accentlight}{HTML}{E7F3F0}
+\definecolor{accentmid}{HTML}{94C9BD}
+\definecolor{sig}{HTML}{0C548C}
+\definecolor{sigbg}{HTML}{EAF2FA}
+\definecolor{warn}{HTML}{B54708}
+\definecolor{warnbg}{HTML}{FEF4E8}
+\definecolor{danger}{HTML}{B42318}
+\definecolor{dangerbg}{HTML}{FDEDEC}
+\definecolor{ok}{HTML}{067647}
+\definecolor{okbg}{HTML}{E9F6EF}
+\definecolor{cpu}{HTML}{5B21B6}
+\definecolor{cpubg}{HTML}{F1ECFB}
+\definecolor{notebg}{HTML}{F3F5F8}
+\definecolor{rowgray}{HTML}{F5F7FA}
+\definecolor{codebg}{HTML}{F6F8FA}
+\definecolor{codeframe}{HTML}{D6DCE3}
+\color{ink}
+
+\hypersetup{
+  colorlinks=true, linkcolor=accent, urlcolor=sig, citecolor=accent,
+  pdftitle={Indoor Occupancy \& Space Utilization System: đặc tả và lộ trình triển khai},
+  pdfauthor={Claude (Anthropic) cho Tuan},
+  pdfsubject={Computer vision, occupancy, space utilization, YOLO, ONNX Runtime, FastAPI, Docker},
+  pdfkeywords={occupancy, space utilization, computer vision, YOLO, ByteTrack, ONNX Runtime, FastAPI, Docker Compose, CI/CD},
+  bookmarksnumbered=true, pdfstartview=FitH}
+
+% ---------- spacing ----------
+\linespread{1.12}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\setlength{\parskip}{0.55em plus 0.15em minus 0.1em}
+\setlist{itemsep=0.15em, topsep=0.3em, parsep=0.1em, leftmargin=1.4em}
+\setlist[enumerate]{leftmargin=1.6em}
+\renewcommand{\arraystretch}{1.22}
+\captionsetup{font={small}, labelfont={bf,color=accent}, skip=5pt, justification=raggedright, singlelinecheck=false}
+\captionsetup[table]{position=top}
+
+% ---------- headings ----------
+\titleformat{\chapter}[display]
+  {\displayfont\color{ink}\raggedright}
+  {\color{accent}\displaylight\fontsize{15}{18}\selectfont\MakeUppercase{\chaptertitlename}~\thechapter}
+  {2pt}
+  {\fontsize{25}{30}\selectfont}
+  [{\color{accentmid}\titlerule[1.2pt]}]
+\titleformat{name=\chapter,numberless}[display]
+  {\displayfont\color{ink}\raggedright}{}{0pt}{\fontsize{25}{30}\selectfont}[{\color{accentmid}\titlerule[1.2pt]}]
+\titlespacing*{\chapter}{0pt}{-6mm}{8mm}
+\titleformat{\section}{\needspace{7\baselineskip}\sffamily\bfseries\large\color{accent}}{\thesection}{0.7em}{}
+\titlespacing*{\section}{0pt}{1.25em}{0.35em}
+\titleformat{\subsection}{\needspace{5\baselineskip}\sffamily\bfseries\normalsize\color{ink}}{\thesubsection}{0.6em}{}
+\titlespacing*{\subsection}{0pt}{0.95em}{0.2em}
+\titleformat{\subsubsection}[runin]{\sffamily\bfseries\normalsize\color{accent}}{}{0pt}{}[.]
+\titlespacing*{\subsubsection}{0pt}{0.6em}{0.6em}
+\setcounter{secnumdepth}{2}
+\setcounter{tocdepth}{1}
+
+% ---------- header / footer ----------
+\pagestyle{scrheadings}
+\clearpairofpagestyles
+\automark[chapter]{chapter}
+\ihead{\small\color{muted}\leftmark}
+\ohead{\small\color{muted}Indoor Occupancy · đặc tả dự án}
+\ofoot{\small\color{muted}\pagemark}
+\ifoot{\small\color{muted}Phiên bản 1.0 · 10/11/2026}
+\setkomafont{pageheadfoot}{\normalfont}
+\setkomafont{pagenumber}{\normalfont}
+\renewcommand*{\chaptermarkformat}{\thechapter.\enskip}
+
+% ---------- callout boxes ----------
+\tcbset{calloutbase/.style={enhanced, breakable, boxrule=0pt, leftrule=3pt, arc=1.5pt,
+  left=8pt, right=8pt, top=5pt, bottom=5pt, before skip=0.7em, after skip=0.8em,
+  fonttitle=\sffamily\bfseries\small, coltitle=ink, attach title to upper={\par\vspace{2pt}}, fontupper=\small}}
+\newtcolorbox{luuy}[1][Lưu ý]{calloutbase, colback=sigbg, colframe=sig, title={#1}}
+\newtcolorbox{canhbao}[1][Cảnh báo]{calloutbase, colback=dangerbg, colframe=danger, title={#1}}
+\newtcolorbox{chuy}[1][Chú ý]{calloutbase, colback=warnbg, colframe=warn, title={#1}}
+\newtcolorbox{meo}[1][Mẹo]{calloutbase, colback=okbg, colframe=ok, title={#1}}
+\newtcolorbox{quyetdinh}[1][Quyết định]{calloutbase, colback=accentlight, colframe=accent, title={#1}}
+\newtcolorbox{tomtat}[1][Tóm tắt]{enhanced, breakable, boxrule=0.6pt, arc=2pt, colback=white, colframe=accentmid,
+  left=10pt, right=10pt, top=7pt, bottom=7pt, fonttitle=\sffamily\bfseries, coltitle=white, colbacktitle=accent, title={#1}}
+
+% Hộp cho mỗi giai đoạn của lộ trình
+\newtcolorbox{giaidoan}[2]{enhanced, breakable, boxrule=0.6pt, arc=2pt, colback=white, colframe=accentmid,
+  left=9pt, right=9pt, top=6pt, bottom=6pt, before skip=0.6em, after skip=0.9em,
+  fonttitle=\sffamily\bfseries\small, coltitle=white, colbacktitle=accent,
+  title={#1}, after title={\hfill\normalfont\sffamily\small #2}, fontupper=\small}
+
+% ---------- code listings ----------
+\lstdefinelanguage{yaml}{morecomment=[l]{\#}, sensitive=true, morestring=[b]", morestring=[b]'}
+\lstdefinelanguage{dockerfile}{morecomment=[l]{\#}, sensitive=true,
+  morekeywords={FROM,AS,RUN,COPY,ENV,ARG,WORKDIR,USER,ENTRYPOINT,CMD,EXPOSE,HEALTHCHECK,LABEL}}
+\lstdefinelanguage{make}{morecomment=[l]{\#}, sensitive=true}
+\lstset{basicstyle=\ttfamily\footnotesize\color{ink}, columns=fullflexible, keepspaces=true,
+  backgroundcolor=\color{codebg}, frame=single, rulecolor=\color{codeframe}, framerule=0.5pt,
+  xleftmargin=4pt, xrightmargin=4pt, framesep=5pt, aboveskip=0.7em, belowskip=0.7em,
+  commentstyle=\color{muted}\itshape, keywordstyle=\color{accent}\bfseries, stringstyle=\color{sig},
+  breaklines=true, breakatwhitespace=false, postbreak=\mbox{\textcolor{muted}{$\hookrightarrow$}\space},
+  showstringspaces=false, tabsize=4, upquote=true, numbers=none,
+  literate={–}{{--}}1 {—}{{---}}1,
+  escapeinside={(*}{*)}}
+
+% ---------- tikz styles ----------
+\tikzset{
+  >={Stealth[length=2.2mm,width=1.6mm]},
+  blk/.style={draw=#1, fill=#1!8, rounded corners=2pt, line width=0.7pt, align=center, font=\sffamily\footnotesize, inner sep=4pt, minimum height=8mm},
+  blk/.default=accent,
+  flow/.style={draw=sig, line width=0.75pt, ->},
+  flowdash/.style={draw=muted, line width=0.7pt, ->, dashed},
+  lbl/.style={font=\sffamily\scriptsize, text=muted, align=center},
+  lblsig/.style={font=\sffamily\scriptsize, text=sig, align=center, fill=white, inner sep=1pt},
+  st/.style={draw=accent, fill=accentlight, rounded corners=8pt, line width=0.8pt, align=center, font=\sffamily\footnotesize\bfseries, minimum width=24mm, minimum height=10mm},
+}
+
+% ---------- helpers ----------
+\newcommand{\breakus}{\textunderscore\allowbreak}
+\newcommand{\file}[1]{{\ttfamily\let\_\breakus #1}}
+\newcommand{\code}[1]{{\ttfamily\let\_\breakus #1}}
+\newcommand{\slb}{/\allowbreak}
+\newcommand{\uoc}{\textsuperscript{\textcolor{warn}{*}}}  % estimate marker
+\newcolumntype{L}[1]{>{\RaggedRight\arraybackslash}p{#1}}
+\newcolumntype{C}[1]{>{\centering\arraybackslash}p{#1}}
+\newcolumntype{Y}{>{\RaggedRight\arraybackslash}X}
+\newcommand{\tabhead}[1]{\textsf{\bfseries\color{ink}#1}}
+\newenvironment{bang}{\par\small\rowcolors{2}{rowgray}{white}}{\par\vspace{0.3em}}
+\renewcommand{\lstlistingname}{Mã nguồn}
+\newcommand{\chkbox}{\tikz[baseline=-0.15ex]\draw[line width=0.6pt, muted] (0,0) rectangle (1.5ex,1.5ex);}
+\newcommand{\done}{\par\noindent\chkbox\enspace}
+\newcommand{\vtag}[1]{{\sffamily\footnotesize\bfseries\color{accent}#1}}
+% ===== end preamble =====
+
+\begin{document}
+% ===== begin titlepage =====
+\begin{titlepage}
+\thispagestyle{empty}
+\newcommand{\seat}[3]{% x tâm, y đáy, có người (1/0)
+  \ifnum#3=1
+    \fill[accent!72, rounded corners=1pt] (#1-4,#2) rectangle (#1+4,#2+5);
+    \fill[white] (#1,#2+2.5) circle (1.35);
+  \else
+    \draw[accent!45, fill=white, rounded corners=1pt, line width=0.6pt] (#1-4,#2) rectangle (#1+4,#2+5);
+  \fi}
+\begin{tikzpicture}[remember picture, overlay]
+  % top band
+  \fill[accent] (current page.north west) rectangle ([yshift=-104mm]current page.north east);
+  \foreach \i in {0,...,22} {
+    \draw[white, opacity=0.07, line width=0.4pt] ([xshift=\i*10mm]current page.north west) -- ++(0,-104mm);
+  }
+  \foreach \j in {1,...,10} {
+    \draw[white, opacity=0.07, line width=0.4pt] ([yshift=-\j*10mm]current page.north west) -- ++(210mm,0);
+  }
+  \node[anchor=north west, text=white, align=left, text width=172mm, inner sep=0pt]
+     at ([xshift=21mm,yshift=-19mm]current page.north west) {%
+     {\displaylight\fontsize{11}{14}\selectfont ĐẶC TẢ DỰ ÁN\quad·\quad COMPUTER VISION\quad·\quad PHIÊN BẢN 1.0\quad·\quad 10/11/2026}\\[8mm]
+     {\displayfont\fontsize{29}{35}\selectfont Indoor Occupancy \&\\[1mm] Space Utilization System}\\[7mm]
+     {\displaylight\fontsize{13}{17.5}\selectfont Đo số người, mức lấp đầy và thời gian sử dụng từng vùng trong\\
+      phòng làm việc, phòng thí nghiệm, thư viện: từ bài toán đến\\ phần mềm triển khai được bất cứ lúc nào}%
+  };
+
+  % ---- floor plan illustration ----
+  \begin{scope}[shift={([xshift=30mm,yshift=-212mm]current page.north west)}, x=1mm, y=1mm]
+    \fill[notebg] (0,0) rectangle (150,15);
+    \fill[white] (0,15) rectangle (150,85);
+    \fill[accent!32] (110,15) rectangle (150,85);   % phòng họp: vùng cấp phòng
+    % camera field of view
+    \foreach \cx/\cy/\a in {1.5/83.5/-45, 108.5/83.5/-135, 148.5/83.5/-135} {
+      \fill[sig, opacity=0.08] (\cx,\cy) -- ++(\a+28:34) arc[start angle=\a+28, end angle=\a-28, radius=34] -- cycle;
+    }
+    % library tables + seats
+    \fill[ink!14, rounded corners=1pt] (8,62) rectangle (52,68);
+    \fill[ink!14, rounded corners=1pt] (8,32) rectangle (52,38);
+    \foreach \x/\y/\o in {13.5/70/1, 24.5/70/1, 35.5/70/0, 46.5/70/1,
+                          13.5/55/0, 24.5/55/1, 35.5/55/1, 46.5/55/0,
+                          13.5/40/1, 24.5/40/0, 35.5/40/1, 46.5/40/0,
+                          13.5/25/1, 24.5/25/0, 35.5/25/1, 46.5/25/0} {\seat{\x}{\y}{\o}}
+    % lab desks + seats
+    \fill[ink!14, rounded corners=1pt] (66,64) rectangle (104,70);
+    \fill[ink!14, rounded corners=1pt] (66,36) rectangle (104,42);
+    \foreach \x/\y/\o in {72.3/57/1, 85/57/0, 97.7/57/0, 72.3/29/0, 85/29/1, 97.7/29/0} {\seat{\x}{\y}{\o}}
+    % meeting room table + people
+    \fill[white] (130,50) ellipse (9 and 19);
+    \draw[ink!30, line width=0.6pt] (130,50) ellipse (9 and 19);
+    \foreach \px/\py in {118.5/60, 118.5/44, 141.5/62, 141.5/49, 141.5/37} {\fill[ink] (\px,\py) circle (1.6);}
+    % walls
+    \draw[ink!75, line width=1.4pt] (0,0) rectangle (150,85);
+    \draw[ink!75, line width=1.4pt] (60,15) -- (60,85) (110,15) -- (110,85);
+    \draw[ink!75, line width=1.4pt] (0,15) -- (24,15) (36,15) -- (78,15) (90,15) -- (124,15) (136,15) -- (150,15);
+    % door counting line
+    \draw[warn, line width=1.1pt, dash pattern=on 2pt off 1.2pt] (78,15) -- (90,15);
+    \node[font=\sffamily\tiny, text=warn] at (84,10.5) {vạch đếm cửa};
+    % cameras
+    \foreach \cx/\cy in {1.5/83.5, 108.5/83.5, 148.5/83.5} {\fill[sig] (\cx,\cy) circle (1.3);}
+    % labels
+    \node[anchor=north west, align=left, font=\sffamily\tiny, inner sep=0pt] at (3,83.3)
+      {\textbf{THƯ VIỆN}\\\textcolor{muted}{9/16 chỗ · lấp đầy 56\%}};
+    \node[anchor=north west, align=left, font=\sffamily\tiny, inner sep=0pt] at (62.5,83.3)
+      {\textbf{PHÒNG LAB}\\\textcolor{muted}{2/6 chỗ · lấp đầy 33\%}};
+    \node[anchor=north west, align=left, font=\sffamily\tiny, inner sep=0pt] at (112.5,83.3)
+      {\textbf{PHÒNG HỌP}\\\textcolor{ink!75}{5/8 người · 63\%}};
+    \node[font=\sffamily\tiny, text=muted] at (30,7.5) {HÀNH LANG};
+    % legend
+    \shade[left color=accent!6, right color=accent!80] (0,-9) rectangle (40,-6);
+    \draw[accent!50, line width=0.4pt] (0,-9) rectangle (40,-6);
+    \node[anchor=north west, font=\sffamily\tiny, text=muted, inner sep=0pt] at (0,-10.2) {0\%};
+    \node[anchor=north east, font=\sffamily\tiny, text=muted, inner sep=0pt] at (40,-10.2) {100\%};
+    \node[anchor=west, font=\sffamily\tiny, text=muted] at (41,-7.5) {mức lấp đầy vùng};
+    \fill[sig] (75,-7.5) circle (1.3);
+    \node[anchor=west, font=\sffamily\tiny, text=muted] at (77,-7.5) {camera};
+    \draw[warn, line width=1.1pt, dash pattern=on 2pt off 1.2pt] (95,-7.5) -- (103,-7.5);
+    \node[anchor=west, font=\sffamily\tiny, text=muted] at (104,-7.5) {vạch đếm (tùy chọn)};
+    \node[anchor=north, font=\sffamily\scriptsize, text=muted, align=center, text width=150mm] at (75,-14)
+      {Minh họa: mỗi chỗ ngồi ở thư viện và phòng lab là một vùng riêng; phòng họp được đếm theo cả phòng.\\
+       Hệ thống chỉ lưu số đếm theo vùng, không lưu hình ảnh và không nhận dạng ai.};
+  \end{scope}
+
+  % ---- info strip ----
+  \node[anchor=south west, align=left, text width=168mm, inner sep=0pt]
+     at ([xshift=21mm,yshift=16mm]current page.south west) {%
+     {\color{accentmid}\rule{168mm}{0.8pt}}\par\vspace{3mm}
+     \small
+     \textcolor{accent}{\sffamily\bfseries Phát triển từ:}\enspace Real-Time Multi-Camera Video Analytics System, brief v2.0 (07/11/2026)\par\vspace{1.2mm}
+     \textcolor{accent}{\sffamily\bfseries Công nghệ chính:}\enspace YOLO + ONNX Runtime CUDA · ByteTrack · MediaMTX · FastAPI · SQLite · Docker Compose · GitHub Actions\par\vspace{1.2mm}
+     \textcolor{accent}{\sffamily\bfseries Soạn cho:}\enspace Tuan\quad·\quad\textcolor{accent}{\sffamily\bfseries Người soạn:}\enspace Claude (Anthropic)\quad·\quad
+     \textcolor{accent}{\sffamily\bfseries Trạng thái:}\enspace bản nháp để rà soát\par\vspace{3mm}
+     {\scriptsize\color{muted} Ngưỡng, tham số và mốc thời gian trong tài liệu là đề xuất ban đầu, sẽ chốt lại sau khi có số đo baseline ở Giai đoạn 1.
+     Số liệu có dấu \textcolor{warn}{*} là ước tính. Phiên bản thư viện trong ví dụ cần đối chiếu bảng tương thích chính thức trước khi dùng.}
+  };
+\end{tikzpicture}
+\end{titlepage}
+% ===== end titlepage =====
+
+\pagenumbering{roman}
+\chapter*{Tóm tắt}
+\addcontentsline{toc}{chapter}{Tóm tắt}
+\markboth{Tóm tắt}{Tóm tắt}
+
+\begin{tomtat}[Dự án trong một trang]
+\textbf{Bài toán.} Các tòa nhà, phòng lab và thư viện thường không biết chính xác không gian của mình được dùng bao nhiêu:
+phòng nào luôn đông, phòng nào bỏ trống, giờ nào cao điểm, sức chứa thực tế so với thiết kế. Đếm tay thì tốn công và
+chỉ có số liệu rời rạc; dữ liệu thẻ ra vào chỉ biết ai vào tòa nhà, không biết người ngồi ở đâu.
+
+\textbf{Giải pháp.} Một phần mềm chạy tại chỗ (on-premise) trên một PC có GPU. Phần mềm đọc luồng video từ camera,
+phát hiện người bằng mô hình pretrained, đếm số người trong từng vùng (chỗ ngồi, dãy bàn, cả phòng), rồi tính
+mức lấp đầy, tỉ lệ thời gian sử dụng, giờ cao điểm và thời gian lưu trú. Kết quả có qua REST API, dashboard và file CSV.
+Hệ thống chỉ lưu số đếm; khung hình không bao giờ rời khỏi RAM.
+
+\textbf{Khác với bản brief v2.0.} Trọng tâm chuyển từ \enquote{đếm lượt qua vạch thời gian thực} sang
+\enquote{chuỗi occupancy theo vùng}. Người ngồi bị bàn che chân, đứng yên hàng giờ và thay đổi chậm, nên hệ thống
+lấy mẫu 1--2 FPS, gán người vào vùng theo tâm hoặc độ chồng lấn của bounding box, và tính phiên lưu trú theo trạng thái
+chỗ ngồi thay vì theo \code{track\_id}.
+
+\textbf{Mục tiêu đo được (đề xuất).} MAE số người theo vùng $\le 0{,}5$ người; sai số mức lấp đầy theo giờ
+$\le 5$ điểm phần trăm; $\ge 8$ camera ở 2 FPS trên một GPU; dashboard trễ $\le 3$ s (p95); tự phục hồi
+$\le 10$ s; chạy liên tục 24 giờ không lỗi; triển khai hoặc rollback bằng một lệnh.
+
+\textbf{Lộ trình.} 9 giai đoạn trong khoảng 11 tuần. Giai đoạn 0 dựng ngay một \enquote{bộ khung chạy được}
+(walking skeleton) có CI, Docker và script deploy. Sau đó mỗi giai đoạn kết thúc bằng một bản phát hành có số hiệu,
+nên nhánh \code{main} lúc nào cũng deploy được.
+
+\textbf{Rủi ro lớn nhất.} Mô hình pretrained có thể bỏ sót nhiều người ngồi bị che hoặc nhìn từ trên cao.
+Phép thử khả thi ở Giai đoạn 1 (mục~\ref{sec:gonogo}) quyết định có tiếp tục với cấu hình hiện tại hay phải đổi
+góc camera hoặc mô hình.
+\end{tomtat}
+
+\section*{Cách đọc tài liệu}
+\begin{bang}
+\begin{tabularx}{\linewidth}{L{34mm}Y}
+\toprule
+\tabhead{Bạn cần} & \tabhead{Đọc} \\
+\midrule
+Hiểu bài toán và mục tiêu & Chương~\ref{ch:baitoan} (bài toán, chỉ số, phạm vi) và Chương~\ref{ch:thachthuc} (thách thức đặc thù) \\
+Thiết kế và viết mã & Chương~\ref{ch:kientruc} (kiến trúc), \ref{ch:thuattoan} (thuật toán), \ref{ch:chucnang} (đặc tả chức năng) \\
+Lập kế hoạch làm việc & Chương~\ref{ch:lotrinh} (lộ trình 9 giai đoạn) và Chương~\ref{ch:quytrinh} (CI/CD, phát hành) \\
+Kiểm thử và báo cáo số đo & Chương~\ref{ch:kiemthu} \\
+Cài đặt tại một địa điểm thật & Chương~\ref{ch:trienkhai} (triển khai, vận hành) và Chương~\ref{ch:riengtu} (quyền riêng tư) \\
+Bắt đầu repo & Phụ lục~\ref{app:repo} đến~\ref{app:ci} (cấu trúc repo, Compose, Dockerfile, Makefile, CI) \\
+\bottomrule
+\end{tabularx}
+\end{bang}
+
+\tableofcontents
+\clearpage
+\pagenumbering{arabic}
+% ============================================================
+\chapter{Bài toán và mục tiêu}\label{ch:baitoan}
+% ============================================================
+
+\section{Bối cảnh}
+Không gian trong nhà là một trong những chi phí lớn nhất của trường học, doanh nghiệp và thư viện, nhưng mức sử dụng
+thực tế thường chỉ được ước đoán. Có ba câu hỏi người quản lý cơ sở vật chất hay gặp: phòng nào thường xuyên quá tải,
+phòng nào bị lãng phí, và nên mở thêm hay thu hẹp không gian nào. Người dùng cuối thì có câu hỏi đơn giản hơn:
+\enquote{bây giờ thư viện còn chỗ không?}
+
+Các cách đo hiện có đều có hạn chế. Đếm tay theo đợt tốn công và chỉ cho số liệu rời rạc. Dữ liệu thẻ ra vào hay Wi-Fi
+cho biết có người trong tòa nhà, nhưng không cho biết họ ngồi ở đâu. Cảm biến hồng ngoại đếm qua cửa bị trôi sai số theo
+thời gian. Camera kết hợp thị giác máy tính có thể đếm trực tiếp số người trong từng vùng, với điều kiện xử lý tốt
+vấn đề che khuất và quyền riêng tư.
+
+\section{Câu hỏi hệ thống phải trả lời}
+\begin{enumerate}
+  \item \textbf{Hiện tại:} mỗi vùng đang có bao nhiêu người, còn bao nhiêu chỗ trống? Cập nhật trong vài giây.
+  \item \textbf{Mức sử dụng:} trong một khoảng thời gian, mỗi vùng được lấp đầy trung bình bao nhiêu phần trăm sức chứa,
+        và có người trong bao nhiêu phần trăm giờ mở cửa?
+  \item \textbf{Cao điểm:} giờ nào trong ngày, ngày nào trong tuần đông nhất? Số người cực đại là bao nhiêu?
+  \item \textbf{Lưu trú:} một chỗ ngồi thường được dùng liên tục bao lâu? Phân bố thời lượng các phiên ra sao?
+  \item \textbf{Xu hướng:} mức sử dụng thay đổi thế nào theo tuần, theo học kỳ, sau khi bố trí lại phòng?
+\end{enumerate}
+
+\section{Người dùng và kịch bản sử dụng}
+\begin{bang}
+\begin{tabularx}{\linewidth}{L{30mm}L{52mm}Y}
+\toprule
+\tabhead{Vai trò} & \tabhead{Nhu cầu} & \tabhead{Chức năng tương ứng} \\
+\midrule
+Quản lý cơ sở vật chất & Báo cáo mức sử dụng theo tuần, so sánh các phòng, tìm phòng lãng phí & Dashboard lịch sử, bản đồ nhiệt theo giờ, xuất CSV \\
+Người dùng cuối & Biết còn chỗ trống trước khi đến & Trang trạng thái trực tiếp chỉ đọc (số chỗ trống theo phòng) \\
+Kỹ thuật viên & Lắp camera, vẽ vùng, theo dõi sức khỏe hệ thống & Công cụ vẽ vùng, trang trạng thái camera, cảnh báo, log \\
+Nhà phát triển & Thêm tính năng mà không làm hỏng bản đang chạy & CI, bộ test hồi quy độ chính xác, môi trường mô phỏng \\
+\bottomrule
+\end{tabularx}
+\end{bang}
+
+\section{Thuật ngữ và định nghĩa chỉ số}\label{sec:dinhnghia}
+Mọi chỉ số trong tài liệu được tính từ các định nghĩa dưới đây. Việc định nghĩa trước là bắt buộc: nếu không,
+\enquote{mức sử dụng 60\%} có thể mang nhiều nghĩa khác nhau và không so sánh được.
+
+\begin{bang}
+\begin{tabularx}{\linewidth}{L{32mm}Y}
+\toprule
+\tabhead{Thuật ngữ} & \tabhead{Định nghĩa} \\
+\midrule
+Vùng $z$ (zone) & Một đa giác trên ảnh của một camera, gắn với một không gian thật: một chỗ ngồi, một dãy bàn hoặc cả phòng.
+  Vùng thuộc một \emph{nhóm} (ví dụ \code{seats}, \code{room}); trong cùng nhóm, mỗi người chỉ thuộc tối đa một vùng. \\
+Sức chứa $C_z$ & Số chỗ thiết kế của vùng, khai báo trong cấu hình. \\
+Mẫu $k$ & Một khung hình được lấy để xử lý tại thời điểm $t_k$ (đồng hồ đơn điệu). Tần số lấy mẫu $f_s$ cấu hình theo camera. \\
+Số đếm thô $c_z(k)$ & Số detection được gán vào vùng $z$ ở mẫu $k$, sau khi lọc (mục~\ref{sec:gan}). \\
+Occupancy $\hat n_z(k)$ & Số đếm đã làm mượt bằng trung vị trượt trên $W$ mẫu gần nhất (mục~\ref{sec:lammuot}). \\
+Giờ mở cửa $\mathcal{T}$ & Tập khoảng thời gian vùng được phép sử dụng, khai báo theo ngày trong tuần và ngày nghỉ. Chỉ số sử dụng chỉ tính trong $\mathcal{T}$. \\
+Phiên (session) & Một khoảng thời gian liên tục một chỗ ngồi có người, hoặc một người ở trong một vùng mở. \\
+\bottomrule
+\end{tabularx}
+\end{bang}
+
+Gọi $K_T$ là tập các mẫu trong khoảng $T \subseteq \mathcal{T}$ và $\Delta t$ là khoảng cách giữa hai mẫu. Các chỉ số chính:
+
+\begin{align}
+  \text{Mức lấp đầy}\quad & F_z(T) = \frac{1}{|K_T|}\sum_{k\in K_T}\frac{\hat n_z(k)}{C_z} \\[2pt]
+  \text{Tỉ lệ thời gian sử dụng}\quad & U_z(T) = \frac{1}{|K_T|}\sum_{k\in K_T}\mathbf{1}\!\left[\hat n_z(k)\ge 1\right] \\[2pt]
+  \text{Cao điểm}\quad & P_z(T) = \max_{k\in K_T}\hat n_z(k), \qquad P^{95}_z(T) = \operatorname{p95}_{k\in K_T}\hat n_z(k) \\[2pt]
+  \text{Chỗ-giờ (seat-hours)}\quad & H_z(T) = \frac{\Delta t}{3600}\sum_{k\in K_T}\hat n_z(k)
+\end{align}
+
+$F_z$ trả lời câu hỏi \enquote{dùng bao nhiêu phần trăm sức chứa}; $U_z$ trả lời \enquote{có người trong bao nhiêu phần trăm thời gian}.
+Một phòng họp 10 chỗ thường chỉ có 2 người họp suốt ngày sẽ có $U_z$ cao nhưng $F_z$ thấp, tức là phòng quá lớn so với nhu cầu.
+Đây chính là loại phát hiện mà người quản lý cần. $P^{95}_z$ được báo cáo kèm $P_z$ vì giá trị cực đại dễ bị một mẫu nhiễu làm sai.
+
+\begin{quyetdinh}[Quyết định định nghĩa: chỉ đếm người nhìn thấy được]
+Một người đi ra ngoài để lại cặp sách trên ghế: hệ thống \textbf{không} tính ghế đó là đang dùng sau khi hết thời gian ân hạn
+(mục~\ref{sec:ghe}). Phát hiện \enquote{giữ chỗ bằng đồ vật} là bài toán khác, cần phát hiện đồ vật, và nằm ngoài phạm vi v1.0.
+README và báo cáo phải ghi rõ định nghĩa này.
+\end{quyetdinh}
+
+\section{Mục tiêu đo được}\label{sec:muctieu}
+Các ngưỡng là đề xuất ban đầu và sẽ chốt lại sau số đo baseline ở Giai đoạn 1. Nếu cuối dự án chưa đạt, báo cáo phải giải thích
+bằng số đo thay vì bỏ qua.
+
+\begin{bang}
+\begin{xltabular}{\linewidth}{L{9mm}L{34mm}Y L{34mm}}
+\toprule
+\tabhead{Mã} & \tabhead{Mục tiêu} & \tabhead{Định nghĩa đo} & \tabhead{Ngưỡng đề xuất} \\
+\midrule
+\endhead
+M1 & Độ chính xác đếm & MAE giữa $\hat n_z$ và nhãn tay trên các mẫu có nhãn của tập test (mục~\ref{sec:chiso}) & $\le \max(0{,}5;\ 0{,}05\,C_z)$ người \\
+M2 & Độ chính xác chỉ số sử dụng & Sai số tuyệt đối của $F_z$ và $U_z$ tính theo từng giờ & $\le 5$ điểm phần trăm \\
+M3 & Phiên chỗ ngồi & Tỉ lệ phiên thật được khớp; sai số thời điểm bắt đầu/kết thúc; tỉ lệ phân mảnh & $\ge 90\%$; $\le 30$ s; $\le 1{,}2$ \\
+M4 & Quy mô & Số camera tối đa trên một GPU ở $f_s = 2$ FPS mà tỉ lệ mẫu bị bỏ $\le 1\%$ & $\ge 8$ camera \\
+M5 & Độ tươi dữ liệu & Từ lúc nhận khung đến lúc dashboard hiển thị số mới, p95 & $\le 3$ s \\
+M6 & Phục hồi & Từ lúc nguồn video sống lại đến lúc camera về \code{ONLINE}; camera khác không bị ảnh hưởng & $\le 10$ s \\
+M7 & Ổn định & Soak test liên tục; RAM tăng so với sau giờ đầu; số lần crash & 24 giờ; $< 10\%$; 0 \\
+M8 & Triển khai & Từ máy đã cài driver và Docker đến hệ thống chạy; nâng cấp hoặc rollback & $\le 15$ phút, 1 lệnh; $\le 5$ phút, không mất dữ liệu \\
+M9 & Quyền riêng tư & Số file ảnh hoặc video được ghi ra đĩa ở chế độ production (kiểm thử tự động) & 0 \\
+\bottomrule
+\end{xltabular}
+\end{bang}
+
+\section{Phạm vi}
+\begin{bang}
+\begin{tabularx}{\linewidth}{Y Y}
+\toprule
+\tabhead{Trong phạm vi v1.0} & \tabhead{Ngoài phạm vi (phiên bản sau)} \\
+\midrule
+Camera IP qua RTSP; webcam USB và file MP4 qua FFmpeg đẩy lên MediaMTX & Nhận dạng khuôn mặt hoặc bất kỳ thông tin định danh nào \\
+Phát hiện người bằng mô hình pretrained (YOLO, ONNX Runtime CUDA; chạy được trên CPU cho môi trường thử) & Nhận dạng lại người giữa các camera (cross-camera Re-ID) \\
+Vùng đa giác theo nhóm, vùng loại trừ, sức chứa; occupancy làm mượt & Phát hiện giữ chỗ bằng đồ vật \\
+Phiên theo chỗ ngồi; phiên theo track có nối track trong vùng mở & Quy đổi sang tọa độ sàn bằng homography \\
+Đếm qua cửa (tính năng tùy chọn, bật bằng cờ cấu hình) & Fine-tune mô hình (chỉ làm nếu phép thử khả thi thất bại, xem mục~\ref{sec:gonogo}) \\
+Tổng hợp theo phút, giờ, ngày; giờ mở cửa; chính sách lưu giữ dữ liệu & Đăng nhập một lần (SSO), nhiều tổ chức trên một hệ thống (multi-tenant) \\
+REST API có phiên bản, WebSocket trạng thái trực tiếp, xuất CSV & Triển khai trên cloud, ứng dụng di động \\
+Dashboard, công cụ vẽ vùng, trang trạng thái công khai chỉ đọc & Lưu trữ video \\
+Xác thực đơn giản bằng token và mật khẩu quản trị; HTTPS qua reverse proxy & Tích hợp hệ thống đặt phòng, BMS của tòa nhà \\
+Log JSON, metric Prometheus, cảnh báo, sao lưu, nâng cấp và rollback & \\
+\bottomrule
+\end{tabularx}
+\end{bang}
+
+\section{Thay đổi so với brief v2.0}
+\begin{bang}
+\begin{xltabular}{\linewidth}{L{38mm}L{44mm}Y}
+\toprule
+\tabhead{Brief v2.0} & \tabhead{Bản này} & \tabhead{Lý do} \\
+\midrule
+\endhead
+Đếm qua vạch là chỉ số chính & Occupancy theo vùng là chính; đếm cửa là tùy chọn & Bài toán hỏi \enquote{bao nhiêu người trong vùng}, không phải \enquote{bao nhiêu lượt qua cửa} \\
+25 FPS, p95 latency $\le 300$ ms & 1--2 FPS cho camera trong phòng, 10 FPS cho camera cửa; đo số camera trên GPU & Occupancy thay đổi chậm; con số \enquote{bao nhiêu camera trên một GPU} có giá trị triển khai hơn \\
+Điểm neo ở giữa cạnh dưới bbox & Điểm neo cấu hình được (mặc định tâm) hoặc tỉ lệ chồng lấn & Người ngồi bị bàn che chân \\
+Dwell theo \code{track\_id}, ân hạn 1,5 s & Phiên theo trạng thái chỗ ngồi, ân hạn 60 s; nối track trong vùng mở & Người ngồi lâu làm tracker đổi ID nhiều lần \\
+Một tiến trình GPU cho mỗi camera & Một tiến trình đọc cho mỗi camera, một tiến trình suy luận gộp batch & Tránh mỗi camera chiếm một CUDA context; dễ mở rộng lên nhiều camera \\
+Backoff tối đa 30 s & Backoff tối đa 5 s, timeout đọc 5 s & Mâu thuẫn với mục tiêu phục hồi $\le 10$ s \\
+Sai số đếm $|\hat n-n|/n$ & MAE theo mẫu, sai số $F_z$, $U_z$, chỉ số khớp phiên & Sai số tổng che được lỗi đếm thừa và thiếu bù trừ nhau \\
+Soak test 2 giờ & Soak test 24 giờ trước mỗi bản phát hành; pilot 7 ngày trước v1.0 & Phần mềm phải deploy được, không chỉ demo được \\
+Không có xác thực & Token API, mật khẩu quản trị, HTTPS tùy chọn & Hệ thống chạy trong mạng của tổ chức khác \\
+\bottomrule
+\end{xltabular}
+\end{bang}
+% ============================================================
+\chapter{Thách thức kỹ thuật đặc thù}\label{ch:thachthuc}
+% ============================================================
+
+Phần lớn pipeline giống một hệ thống đếm người thông thường. Độ khó thật nằm ở chỗ người trong phòng làm việc và thư viện
+\emph{ngồi, đứng yên lâu và bị che nhiều}, trong khi mô hình pretrained chủ yếu được huấn luyện trên ảnh người đứng hoặc đi lại.
+Bảng dưới đây liệt kê các thách thức và nơi tài liệu xử lý chúng.
+
+\begin{bang}
+\begin{xltabular}{\linewidth}{L{32mm}L{42mm}Y L{14mm}}
+\toprule
+\tabhead{Thách thức} & \tabhead{Hậu quả nếu bỏ qua} & \tabhead{Hướng giải quyết} & \tabhead{Mục} \\
+\midrule
+\endhead
+Người ngồi bị bàn, màn hình, ghế che & Detector bỏ sót; điểm neo ở chân rơi ra ngoài vùng & Kiểm tra recall người ngồi ngay từ đầu; điểm neo ở tâm bbox hoặc gán theo độ chồng lấn; vẽ vùng theo khu bàn ghế & \ref{sec:gonogo}, \ref{sec:gan} \\
+Người đứng yên hàng giờ & Detection chớp tắt khi cúi xuống; tracker đổi ID; một lượt ngồi bị cắt thành nhiều lượt & Làm mượt theo thời gian; phiên theo trạng thái chỗ ngồi với ân hạn dài; nối track trong vùng mở & \ref{sec:lammuot}--\ref{sec:noitrack} \\
+Camera gắn trần nhìn xuống, ống kính góc rộng hoặc fisheye & Mô hình pretrained giảm recall rõ rệt ở góc nhìn từ trên & Chọn góc nghiêng thay vì thẳng đứng; thử mô hình lớn hơn và \code{imgsz} lớn hơn; dự phòng mô hình phát hiện đầu người & \ref{sec:gonogo} \\
+Người trên poster, màn hình chiếu, gương, kính & Đếm thừa cố định, rất khó phát hiện bằng mắt trên số liệu tổng & Vùng loại trừ (exclusion mask) trong cấu hình; kiểm tra bằng clip phòng trống & \ref{sec:gan} \\
+Mật độ cao, người che nhau & Đếm thiếu ở giờ cao điểm, đúng lúc số liệu quan trọng nhất & Báo cáo sai số tách theo mức đông; ghi giới hạn trong README; ưu tiên góc nhìn cao & \ref{sec:chiso} \\
+Ánh sáng thay đổi theo giờ, đèn tắt bật & Sai số khác nhau giữa sáng và tối; thiên lệch theo giờ & Bộ test phải có cả ánh sáng ban ngày, đèn và chập tối & \ref{sec:dulieu} \\
+Lấy mẫu thưa (1--2 FPS) & Tracker dựa trên chuyển động kém đi vì người dịch chuyển xa giữa hai mẫu & Occupancy không cần tracking; tracking chỉ dùng cho phiên trong vùng mở và camera cửa ở 10 FPS & \ref{sec:noitrack} \\
+Giám sát nơi học và làm việc & Mất niềm tin của người bị quay; rủi ro pháp lý & Không ghi khung hình; chỉ lưu số đếm theo vùng; không lưu \code{track\_id}; thông báo và xin đồng ý & \ref{ch:riengtu} \\
+\bottomrule
+\end{xltabular}
+\end{bang}
+
+\section{Phép thử khả thi (go/no-go)}\label{sec:gonogo}
+Trước khi xây phần analytics, cần biết detector có thấy đủ người ngồi ở góc camera thật hay không. Nếu không thấy, mọi thuật toán phía
+sau đều không cứu được. Phép thử này làm trong Giai đoạn 1 và chỉ tốn khoảng một đến hai ngày.
+
+\subsubsection{Cách làm}
+\begin{enumerate}
+  \item Quay 15--30 phút ở đúng vị trí và góc camera dự định dùng, có người ngồi làm việc, có lúc đông lúc vắng (có sự đồng ý của người trong hình).
+  \item Trích một khung mỗi 15 s (khoảng 60--120 khung). Gán nhãn bounding box mọi người trong khung bằng CVAT, kèm thuộc tính
+        \code{posture} (\code{standing}, \code{sitting}) và \code{occluded} (che dưới hoặc trên 50\%).
+  \item Chạy detector hiện có với vài cấu hình: mô hình cỡ n và s, \code{imgsz} 640 và 960, \code{conf} 0,25 và 0,35.
+  \item Tính recall và precision ở IoU $\ge 0{,}5$, tách theo \code{posture} và \code{occluded}. Đếm số false positive cố định (poster, màn hình).
+\end{enumerate}
+
+\subsubsection{Quyết định} Dựa trên recall người ngồi của cấu hình tốt nhất:
+
+\begin{bang}
+\begin{tabularx}{\linewidth}{L{44mm}Y}
+\toprule
+\tabhead{Recall người ngồi (cấu hình tốt nhất)} & \tabhead{Hành động} \\
+\midrule
+$\ge 0{,}90$ & Tiếp tục với cấu hình này làm baseline. \\
+$0{,}75$ -- $0{,}90$ & Tiếp tục, nhưng thử thêm mô hình cỡ m, \code{imgsz} 1280, hoặc chia ảnh thành ô (tiling) cho vùng xa; đánh giá lại chi phí GPU. Ghi giới hạn. \\
+$< 0{,}75$ & Dừng lại. Thử đổi góc hoặc vị trí camera trước. Nếu vẫn thấp, đưa \enquote{phát hiện đầu người} hoặc fine-tune vào phạm vi và giãn lộ trình 1--2 tuần. \\
+\bottomrule
+\end{tabularx}
+\end{bang}
+
+\begin{meo}[Vì sao làm phép thử trước]
+Bạn đã có code detect person, nên phép thử này gần như miễn phí. Nó trả lời câu hỏi rủi ro nhất của dự án trước khi bỏ công vào
+những phần phụ thuộc vào nó. Ngưỡng 0,90 và 0,75 là đề xuất: thay đổi được, nhưng phải chốt trước khi chạy để tránh tự điều chỉnh
+cho vừa kết quả.
+\end{meo}
+% ============================================================
+\chapter{Kiến trúc hệ thống}\label{ch:kientruc}
+% ============================================================
+
+\section{Sơ đồ tổng quan}
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[x=1mm, y=1mm, every node/.style={font=\sffamily\footnotesize}]
+  % sources
+  \node[blk=muted, text width=44mm] (s1) at (24,0) {\textbf{Camera IP}\\RTSP, H.264, dùng luồng phụ};
+  \node[blk=muted, text width=44mm] (s2) at (84,0) {\textbf{Webcam USB}\\FFmpeg trên máy host};
+  \node[blk=muted, text width=44mm] (s3) at (144,0) {\textbf{File MP4 (mô phỏng)}\\FFmpeg \code{-re -stream\_loop -1}};
+  \node[blk=sig, text width=78mm] (mtx) at (84,-17) {\textbf{MediaMTX}\enspace RTSP :8554\\\code{rtsp://mediamtx:8554/cam\{i\}}};
+  \draw[flow] (s1.south) |- node[lblsig, pos=0.3]{kéo (proxy)} (mtx.west);
+  \draw[flow] (s2.south) -- node[lblsig, pos=0.45]{đẩy (publish)} (mtx.north);
+  \draw[flow] (s3.south) |- node[lblsig, pos=0.3]{đẩy (publish)} (mtx.east);
+
+  % engine container
+  \draw[accent, line width=0.9pt, rounded corners=3pt] (0.5,-30) rectangle (167,-88);
+  \node[anchor=north east, font=\sffamily\scriptsize\bfseries, text=accent] at (166.5,-30.8) {CONTAINER engine (GPU)};
+  \node[blk, text width=46mm] (rd) at (28,-45.5) {\textbf{Reader × N}\enspace(1 tiến trình/camera)\\decode · timeout · reconnect\\lấy mẫu $f_s$ · letterbox};
+  \node[blk, text width=34mm] (buf) at (84,-45.5) {\textbf{Khung mới nhất}\\shared memory\\1 ô cho mỗi camera};
+  \node[blk, text width=44mm] (inf) at (141,-45.5) {\textbf{Inference}\\gộp batch giữa các camera\\YOLO · ONNX Runtime CUDA};
+  \node[blk, text width=44mm] (ana) at (141,-74) {\textbf{Analytics theo camera}\\lọc · gán vùng · làm mượt\\trạng thái chỗ · phiên · track};
+  \node[blk, text width=34mm] (wr) at (84,-74) {\textbf{Writer}\\luồng ghi duy nhất\\tổng hợp · lưu giữ};
+  \node[blk=muted, text width=46mm] (sup) at (28,-74) {\textbf{Supervisor}\\khởi động lại tiến trình con\\\code{/health} · \code{/metrics} :9100};
+  \draw[flow] (rd) -- (buf);
+  \draw[flow] (buf) -- (inf);
+  \draw[flow] (inf) -- node[lblsig, right=1pt]{detection} (ana);
+  \draw[flow] (ana) -- node[lblsig, above=1pt]{sự kiện} (wr);
+  \draw[flowdash] (sup) -- (rd);
+  \draw[flow] ($(mtx.south west)+(6,0)$) -- ++(0,-3) -| node[lblsig, pos=0.25, above=0.6pt]{RTSP/TCP, mỗi camera một luồng} (rd.north);
+  % privacy boundary
+  \draw[danger, line width=0.8pt, dash pattern=on 3pt off 2pt, rounded corners=3pt] (3,-35.5) rectangle (165,-56);
+  \node[anchor=north west, font=\sffamily\scriptsize, text=danger, fill=white, inner sep=1pt] at (40,-57)
+     {ranh giới quyền riêng tư: khung hình chỉ tồn tại trong RAM};
+
+  % storage + api
+  \node[draw=accent, fill=accentlight, cylinder, shape border rotate=90, aspect=0.22, minimum width=36mm, minimum height=13mm,
+        align=center, line width=0.7pt] (db) at (84,-101) {\textbf{SQLite (WAL)}\\volume \code{occ-data}};
+  \draw[flow] (wr) -- node[lblsig, right=1pt]{ghi} (db);
+  \node[blk, text width=70mm] (api) at (84,-123) {\textbf{Container api}\enspace FastAPI\\REST \code{/api/v1} · WebSocket · OpenAPI · token\\dashboard tĩnh · công cụ vẽ vùng};
+  \draw[flow] (db) -- node[lblsig, right=1pt]{đọc} (api);
+  \node[blk=muted, text width=56mm] (br) at (84,-143) {\textbf{Trình duyệt trong LAN}\\dashboard · trang chỗ trống};
+  \draw[flow, <->] (api) -- node[lblsig, right=1pt]{HTTP(S), Caddy tùy chọn} (br);
+
+  % side: monitoring + config
+  \node[blk=cpu, text width=34mm] (mon) at (20,-123) {\textbf{Prometheus}\\\textbf{+ Grafana}\\profile \code{monitoring}};
+  \draw[flowdash] (sup.south) -- (mon.north);
+  \draw[flowdash] (api.west) -- (mon.east);
+  \node[blk=warn, text width=34mm] (cfg) at (148,-123) {\textbf{configs/*.yaml}\\site, camera, vùng\\có \code{schema\_version}};
+  \draw[flowdash] (api.east) -- node[lbl, above]{ghi} (cfg.west);
+  \draw[flowdash] (cfg.north) -- node[lbl, right]{nạp lại} (cfg.north |- 0,-88);
+\end{tikzpicture}
+\caption{Kiến trúc tổng quan. Mũi tên liền là luồng dữ liệu; mũi tên đứt là điều khiển, cấu hình và metric.}
+\label{fig:kientruc}
+\end{figure}
+
+\section{Thành phần và trách nhiệm}
+\begin{bang}
+\begin{xltabular}{\linewidth}{L{26mm}Y L{40mm}}
+\toprule
+\tabhead{Thành phần} & \tabhead{Trách nhiệm} & \tabhead{Công nghệ} \\
+\midrule
+\endhead
+Nguồn video & Camera IP được MediaMTX kéo về (proxy) để chỉ có một kết nối tới camera. Webcam và file MP4 được FFmpeg đẩy lên. Mọi reader chỉ đọc RTSP từ MediaMTX, nên chỉ có một kiểu nguồn cần xử lý. & MediaMTX, FFmpeg \\
+Reader & Mỗi camera một tiến trình. Đọc RTSP qua TCP với timeout mở và đọc; decode liên tục để không dồn buffer; mỗi $1/f_s$ giây chép khung mới nhất (đã letterbox) vào ô shared memory kèm \code{camera\_id}, số thứ tự, $t_0$ đơn điệu và thời gian UTC. Báo trạng thái \code{ONLINE}, \code{RECONNECTING}, \code{OFFLINE}. & OpenCV (backend FFmpeg) hoặc PyAV; \code{multiprocessing.shared\_memory} \\
+Inference & Gom các ô có khung mới thành một batch (tối đa $B$ khung hoặc chờ tối đa 50 ms), chạy detector, trả detection về đúng camera. Chạy được trên CPU cho môi trường dev và CI. & ONNX Runtime (CUDA EP, CPU EP); YOLO xuất ONNX với batch động \\
+Analytics & Trạng thái riêng cho từng camera: lọc detection, gán vào vùng, làm mượt, máy trạng thái chỗ ngồi, tracker và nối track, đếm cửa. Nhận đồng hồ qua tham số để chạy offline được. & Python, NumPy, Shapely; ByteTrack bản độc lập \\
+Writer & Luồng ghi duy nhất vào SQLite: cập nhật bảng \code{zone\_live} mỗi giây, ghi snapshot 10 s, tổng hợp theo phút, ghi phiên, chạy chính sách lưu giữ. & SQLite (WAL), SQLAlchemy Core, Alembic \\
+Supervisor & Tiến trình gốc của container engine: khởi động và theo dõi tiến trình con, khởi động lại khi chết, phục vụ \code{/health} và \code{/metrics}. & Python, \code{prometheus\_client} \\
+API & REST có phiên bản, WebSocket trạng thái trực tiếp, xuất CSV, xác thực, phục vụ dashboard tĩnh và công cụ vẽ vùng. Chỉ đọc cơ sở dữ liệu; ghi cấu hình YAML khi quản trị viên sửa vùng. & FastAPI, Uvicorn, Pydantic \\
+Dashboard & Trạng thái trực tiếp theo vùng, biểu đồ lịch sử, bản đồ nhiệt ngày × giờ, sức khỏe camera, trang chỗ trống công khai. & HTML, HTMX hoặc JS thuần, Chart.js \\
+Giám sát & Thu metric, hiển thị và cảnh báo. Không bắt buộc để hệ thống chạy. & Prometheus, Grafana (profile) \\
+\bottomrule
+\end{xltabular}
+\end{bang}
+
+\section{Các quyết định thiết kế}
+
+\subsubsection{D1. Một tiến trình đọc cho mỗi camera, một tiến trình suy luận chung}
+Mỗi camera có tiến trình reader riêng, nên luồng hỏng hoặc FFmpeg treo không kéo theo camera khác. Suy luận chạy trong một tiến trình
+duy nhất giữ mô hình trên GPU và gộp batch giữa các camera. Nếu mỗi camera có tiến trình GPU riêng, mỗi tiến trình sẽ có một CUDA
+context và một bản sao mô hình, chiếm vài trăm MB VRAM mỗi tiến trình\uoc, nên số camera bị giới hạn bởi VRAM thay vì bởi khả năng tính.
+Trạng thái analytics vẫn tách hoàn toàn theo \code{camera\_id}.
+
+\subsubsection{D2. Lấy mẫu thưa, nhưng decode liên tục}
+Camera trong phòng chỉ cần $f_s = 1$--$2$ FPS, nhưng reader vẫn phải đọc hết luồng, nếu không buffer RTSP sẽ dồn và khung lấy ra
+bị cũ. Để giảm tải CPU, cấu hình camera IP phát luồng phụ (substream) độ phân giải 720p và 5--10 FPS. Camera cửa dùng $f_s = 10$ FPS
+vì người đi lại nhanh.
+
+\subsubsection{D3. Đồng hồ là một tham số}
+Mọi tính toán thời gian dùng một đối tượng \code{Clock} truyền vào. Khi chạy thật dùng \code{time.monotonic\_ns()} lấy tại thời điểm reader
+nhận khung; trên Linux đồng hồ này chung cho mọi tiến trình và container trên cùng máy. Khi đánh giá offline trên file, dùng
+\code{FrameClock} với $t = \text{frame\_index}/\text{fps}$, nên kết quả tái lập được từng mẫu. Không dùng PTS của RTSP vì PTS
+đặt lại khi MP4 lặp.
+
+\subsubsection{D4. Ranh giới quyền riêng tư nằm trong kiến trúc}
+Khung hình chỉ tồn tại trong reader, shared memory và inference. Không có đường mã nào trong chế độ production ghi khung hình ra đĩa
+hoặc gửi qua mạng. Ngoại lệ duy nhất là ảnh chụp cho công cụ vẽ vùng (mục~\ref{sec:zoneeditor}): làm mờ người trước khi gửi, chỉ giữ trong
+RAM và hết hạn sau 10 phút. Bảng cơ sở dữ liệu không có cột BLOB và không lưu \code{track\_id}.
+
+\subsubsection{D5. Một tiến trình ghi duy nhất}
+SQLite ở chế độ WAL cho phép một tiến trình ghi và nhiều tiến trình đọc cùng lúc. Writer trong engine là nơi duy nhất ghi dữ liệu đo;
+API chỉ đọc. Lớp lưu trữ viết bằng SQLAlchemy Core để sau này đổi sang PostgreSQL mà không sửa logic. Volume dữ liệu phải là
+named volume trên ổ cục bộ, không phải thư mục chia sẻ mạng hay bind mount từ ổ Windows, vì WAL cần chia sẻ bộ nhớ giữa các tiến trình.
+
+\subsubsection{D6. Cấu hình là dữ liệu, có schema và phiên bản}
+Site, camera và vùng nằm trong file YAML có trường \code{schema\_version}, được kiểm tra bằng Pydantic khi khởi động và bằng lệnh
+\code{occ config validate}. Cấu hình sai làm camera đó báo lỗi rõ ràng và dừng, không làm sập camera khác. Thay đổi vùng không cần
+khởi động lại: API ghi file, engine nạp lại cấu hình của đúng camera đó.
+
+\subsubsection{D7. Một image cho production không có PyTorch}
+Image production chỉ chứa ONNX Runtime, nên nhỏ hơn và khởi động nhanh hơn. PyTorch và Ultralytics nằm trong image \code{tools}
+dùng để xuất mô hình và benchmark. Tracker dùng một cài đặt ByteTrack độc lập (bản gốc hoặc thư viện supervision, đều MIT) để image production không phụ thuộc Ultralytics.
+
+\section{Dòng thời gian của một mẫu}\label{sec:dongthoigian}
+\begin{bang}
+\begin{tabularx}{\linewidth}{L{10mm}L{46mm}Y}
+\toprule
+\tabhead{Mốc} & \tabhead{Sự kiện} & \tabhead{Ghi chú} \\
+\midrule
+$t_0$ & Reader nhận khung được chọn làm mẫu & Gắn \code{monotonic\_ns} và UTC \\
+$t_1$ & Khung vào một batch & $t_1 - t_0$: thời gian chờ gom batch, tối đa 50 ms \\
+$t_2$ & Có detection & $t_2 - t_1$: suy luận GPU (gồm tiền xử lý) \\
+$t_3$ & Analytics cập nhật trạng thái vùng & Gán vùng, làm mượt, máy trạng thái \\
+$t_4$ & Writer commit \code{zone\_live} & Gom theo chu kỳ 1 s, nên thêm tối đa 1 s \\
+$t_5$ & API đẩy giá trị mới qua WebSocket & API đọc \code{zone\_live} mỗi giây \\
+\bottomrule
+\end{tabularx}
+\end{bang}
+Độ tươi dữ liệu (M5) là $t_5 - t_0$, ước tính 1--2,5 s\uoc{} với chu kỳ ghi và đọc 1 s. Bộ lọc trung vị $W$ mẫu tạo thêm độ trễ \emph{tín hiệu}
+khoảng $(W-1)/2$ mẫu, tức 1 s với $W=5$ và $f_s=2$. Độ trễ này là chủ ý (đổi lấy ổn định) và được báo cáo riêng, không tính vào M5.
+
+\section{Môi trường}
+\begin{bang}
+\begin{tabularx}{\linewidth}{L{20mm}L{44mm}Y}
+\toprule
+\tabhead{Môi trường} & \tabhead{Phần cứng và nguồn} & \tabhead{Mục đích} \\
+\midrule
+dev & Laptop; backend CPU; camera mô phỏng từ MP4 (profile \code{sim}) & Viết mã, test nhanh, chạy toàn hệ thống không cần GPU \\
+CI & Runner GitHub; CPU; MediaMTX và publisher trong job & Lint, test, hồi quy độ chính xác, smoke test toàn hệ thống \\
+staging & PC có GPU; mô phỏng + webcam + 1 camera thật & Benchmark, bơm lỗi, soak 24 h, diễn tập nâng cấp và rollback \\
+production & PC tại địa điểm; camera thật; profile \code{proxy} và \code{monitoring} & Vận hành; nâng cấp bằng bản phát hành có số hiệu \\
+\bottomrule
+\end{tabularx}
+\end{bang}
+% ============================================================
+\chapter{Thuật toán analytics}\label{ch:thuattoan}
+% ============================================================
+
+Toàn bộ chương này là mã thuần Python, không phụ thuộc GPU hay mô hình. Đầu vào là danh sách detection có thời gian,
+đầu ra là số đếm, trạng thái và phiên. Nhờ vậy mọi thuật toán đều kiểm thử được bằng dữ liệu dựng sẵn và bằng detection
+đã lưu từ trước (mục~\ref{sec:ktdonvi}).
+
+\section{Lọc detection}\label{sec:loc}
+Mỗi detection $b = (x_1, y_1, x_2, y_2, s)$ được đưa về tọa độ ảnh gốc (bỏ letterbox) rồi đi qua các bộ lọc theo thứ tự:
+\begin{enumerate}
+  \item \textbf{Lớp và độ tin cậy:} chỉ giữ lớp \code{person} với $s \ge s_{\min}$. NMS chạy trong hậu xử lý, hoặc được tích hợp vào
+        mô hình khi xuất nếu phiên bản Ultralytics đang dùng hỗ trợ.
+  \item \textbf{Kích thước:} bỏ hộp có chiều cao $h = y_2 - y_1 < h_{\min}$ pixel. Ngưỡng này loại phần lớn nhiễu ở xa.
+  \item \textbf{Vùng loại trừ:} bỏ hộp có điểm neo nằm trong một vùng loại trừ (poster, màn hình chiếu, gương, cửa kính nhìn ra hành lang).
+\end{enumerate}
+
+\section{Gán người vào vùng}\label{sec:gan}
+\subsubsection{Điểm neo cấu hình được}
+Thay vì cố định điểm giữa cạnh dưới như brief v2.0, điểm neo được tham số hóa theo vị trí dọc $\alpha \in [0,1]$:
+\begin{equation}
+  p_\alpha(b) = \left(\frac{x_1 + x_2}{2},\; y_1 + \alpha\,(y_2 - y_1)\right).
+\end{equation}
+$\alpha = 1$ là điểm ở chân (phù hợp người đứng ở sảnh), $\alpha = 0{,}5$ là tâm hộp (mặc định trong phòng, vì chân người ngồi thường bị bàn che).
+
+\subsubsection{Hai cách kiểm tra}
+\begin{itemize}
+  \item \textbf{Theo điểm} (\code{assign: point}): $b$ thuộc $z$ nếu $p_\alpha(b) \in Z$. Phù hợp vùng nhỏ như từng chỗ ngồi.
+  \item \textbf{Theo chồng lấn} (\code{assign: overlap}): $b$ thuộc $z$ nếu tỉ lệ
+        $r_z(b) = |b \cap Z| / |b| \ge \tau$. Phù hợp vùng lớn như cả phòng, ổn định hơn khi hộp bị cắt ở mép.
+\end{itemize}
+
+\subsubsection{Quy tắc nhóm}
+Vùng được khai báo theo nhóm $g$ (ví dụ \code{seats} và \code{room}). Trong mỗi nhóm, một detection thuộc tối đa một vùng:
+nếu nhiều vùng cùng thỏa, chọn vùng có $r_z(b)$ lớn nhất, hòa thì chọn vùng có diện tích nhỏ hơn. Giữa các nhóm khác nhau,
+một người được đếm ở mỗi nhóm một lần, nên một người có thể vừa thuộc \code{room/lab} vừa thuộc \code{seats/lab-03}.
+Số đếm thô của vùng là
+\begin{equation}
+  c_z(k) = \bigl|\{\, b \in \mathcal{D}_k : \text{vùng được gán của } b \text{ trong nhóm } g(z) \text{ là } z \,\}\bigr|,
+\end{equation}
+với $\mathcal{D}_k$ là tập detection đã lọc của mẫu $k$. Kiểm tra cấu hình cảnh báo khi hai vùng cùng nhóm chồng lên nhau quá 10\% diện tích.
+
+\begin{meo}[Vẽ vùng theo chỗ điểm neo xuất hiện, không theo sàn nhà]
+Trên ảnh phối cảnh, tâm hộp của người ngồi nằm ở vùng ghế và phần thân dưới, thường cao hơn mặt sàn nơi đặt ghế. Công cụ vẽ vùng
+(mục~\ref{sec:zoneeditor}) hiển thị điểm neo của detection hiện tại để vẽ đa giác bao đúng chỗ các điểm neo rơi vào.
+\end{meo}
+
+\section{Làm mượt theo thời gian}\label{sec:lammuot}
+Detection của người ngồi yên thường chớp tắt: mất một vài mẫu khi người đó cúi xuống, quay lưng hoặc bị người khác đi ngang che.
+Bộ lọc trung vị trượt với cửa sổ lẻ $W$ loại bỏ các mất mát ngắn này:
+\begin{equation}
+  \hat n_z(k) = \operatorname{median}\bigl\{\, c_z(k-W+1), \dots, c_z(k) \,\bigr\}.
+\end{equation}
+Trung vị loại được nhiễu kéo dài dưới $(W+1)/2$ mẫu và giữ nguyên bước nhảy thật sau độ trễ $(W-1)/2$ mẫu. Trung bình trượt
+không làm được điều này: nó tạo giá trị lẻ và làm nhòe bước nhảy.
+
+\begin{chuy}[Mất dữ liệu không phải là \enquote{0 người}]
+Khi camera mất kết nối hoặc không có mẫu nào trong $T_{\text{stale}}$ giây, trạng thái vùng là \code{UNKNOWN}, không phải 0.
+Các mẫu \code{UNKNOWN} bị loại khỏi $K_T$ khi tính $F_z$ và $U_z$, và mọi báo cáo kèm theo \emph{độ phủ dữ liệu}: tỉ lệ thời gian mở cửa
+có dữ liệu hợp lệ. Nếu ghi 0 khi mất camera, báo cáo sẽ kết luận sai rằng phòng bị bỏ trống.
+\end{chuy}
+
+\section{Trạng thái chỗ ngồi và phiên}\label{sec:ghe}
+Với vùng loại \code{seat} (thường $C_z = 1$), phiên được tính từ trạng thái của chỗ ngồi chứ không từ \code{track\_id}.
+Cách này không bị ảnh hưởng khi tracker đổi ID, và vẫn chạy khi tắt tracking. Các ngưỡng đặt theo \emph{giây}, không theo số khung,
+để không phụ thuộc $f_s$.
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[x=1mm, y=1mm, every node/.style={font=\sffamily\scriptsize}]
+  \node[st] (e) at (0,0) {TRỐNG};
+  \node[st] (i) at (44,0) {ĐANG VÀO};
+  \node[st] (o) at (88,0) {CÓ NGƯỜI};
+  \node[st] (l) at (132,0) {ĐANG RỜI};
+  \draw[flow] (e.north east) to[bend left=18] node[lblsig, above]{$\hat n_z \ge 1$\\ghi $t_{\text{first}}$} (i.north west);
+  \draw[flow] (i.south west) to[bend left=18] node[lblsig, below]{mất trước khi đủ $t_{\text{in}}$} (e.south east);
+  \draw[flow] (i) -- node[lblsig, above=2pt]{liên tục $\ge t_{\text{in}}$\\mở phiên} (o);
+  \draw[flow] (o.north east) to[bend left=18] node[lblsig, above]{$\hat n_z = 0$\\ghi $t_{\text{last}}$} (l.north west);
+  \draw[flow] (l.south west) to[bend left=18] node[lblsig, below]{thấy lại trong $G$} (o.south east);
+  \draw[flow] (l.south) -- ++(0,-14) -| node[lblsig, pos=0.25, below]{quá $G$ giây: đóng phiên, $t_{\text{end}} = t_{\text{last}}$; bỏ nếu ngắn hơn $d_{\min}$} (e.south);
+\end{tikzpicture}
+\caption{Máy trạng thái của một chỗ ngồi. Phiên bắt đầu tại lần đầu thấy người, không phải lúc đủ $t_{\text{in}}$.}
+\label{fig:seatfsm}
+\end{figure}
+
+Một phiên được ghi khi đóng, gồm \code{zone\_id}, $t_{\text{start}} = t_{\text{first}}$, $t_{\text{end}} = t_{\text{last}}$,
+thời lượng $d = t_{\text{end}} - t_{\text{start}}$ và phương pháp (\code{seat\_state}). Ba tham số chính là
+$t_{\text{in}}$ (lọc người đi ngang qua), $G$ (chịu được vắng mặt ngắn hoặc mất detection) và $d_{\min}$ (bỏ phiên quá ngắn).
+Khi engine khởi động lại, các phiên đang mở được đóng tại $t_{\text{last}}$ với cờ \code{interrupted = true}, để báo cáo phân biệt được.
+
+\section{Phiên theo track trong vùng mở}\label{sec:noitrack}
+Với vùng loại \code{area} (khu đứng chờ, quầy dịch vụ, cả phòng), thời gian lưu trú phải tính theo từng người, nên cần tracker.
+
+\subsubsection{Tracker ở tần số mẫu thấp}
+ByteTrack ghép detection theo IoU với dự đoán Kalman. Ở 2 FPS, người đi bộ dịch chuyển xa giữa hai mẫu nên dễ mất ghép,
+nhưng người ngồi hoặc đứng yên vẫn ghép tốt. Tham số \code{frame\_rate} phải đặt bằng $f_s$, không bằng FPS nguồn.
+Trong cài đặt ByteTrack gốc, số khung một track mất dấu còn được giữ là $\lfloor \text{frame\_rate}/30 \cdot \text{track\_buffer} \rfloor$,
+nên muốn giữ $G$ giây thì đặt $\text{track\_buffer} \approx 30\,G$. Cần kiểm tra lại công thức này với thư viện và phiên bản đang dùng.
+
+\subsubsection{Nối track bị đứt}
+Khi tracker vẫn đổi ID, bước nối track chạy sau tracker:
+\begin{enumerate}
+  \item Khi track $a$ mất dấu bên trong vùng $z$ tại $t_a$, ở vị trí $p_a$, với chiều cao hộp $h_a$: đưa $a$ vào danh sách chờ của $z$ trong $G$ giây.
+  \item Khi track mới $b$ xuất hiện lần đầu trong $z$ tại $t_b \le t_a + G$, ở vị trí $p_b$ với $\|p_b - p_a\| \le \beta\,h_a$:
+        $b$ là ứng viên nối với $a$.
+  \item Ghép tham lam theo khoảng cách nhỏ nhất, mỗi track chờ chỉ ghép một lần. Chuỗi track đã nối là một phiên.
+  \item Hết $G$ mà không ai nối: đóng phiên tại lần cuối thấy.
+\end{enumerate}
+Thời gian lưu trú của phiên là $d = t_{\text{last}} - t_{\text{first}}$ của cả chuỗi. Báo cáo kèm \emph{tỉ lệ phân mảnh}: số phiên dự đoán
+chia cho số phiên thật được khớp. Thời gian lưu trú trong vùng mở là số liệu phụ, luôn báo cáo kèm giới hạn.
+
+\section{Đếm qua cửa (tùy chọn)}\label{sec:cua}
+Tính năng bật bằng \code{door\_counter.enabled}, dùng camera nhìn cửa ở $f_s = 10$ FPS. Logic giữ từ brief v2.0 và sửa lỗi đếm sót:
+với vạch $AB$ và điểm neo $P_t$ (ở cửa dùng $\alpha = 1$), khoảng cách có dấu là
+\begin{equation}
+  s_t = \frac{(B - A) \times (P_t - A)}{\|B - A\|}.
+\end{equation}
+Một lượt qua được ghi khi $s$ đổi dấu sau khi đã ra khỏi dải trễ $|s| > \delta$ ở cả hai phía và giao điểm nằm trong đoạn $AB$.
+Chỉ đếm track đã tồn tại tối thiểu $N_{\min}$ mẫu. Một track được đếm lại cùng chiều \emph{sau khi} đã qua theo chiều ngược,
+nên người vào, ra rồi vào lại được tính đúng 2 lượt vào. Thời gian chờ (cooldown) giữa hai lượt ngược chiều chống rung ở vạch.
+
+Số người trong phòng tính từ cửa là $N(t) = \max\bigl(0,\ N(t_0) + \text{IN} - \text{OUT}\bigr)$. Con số này trôi theo thời gian, nên
+được hiệu chỉnh: đặt về 0 lúc đóng cửa, và đặt về 0 khi camera trong phòng báo $\hat n_{\text{room}} = 0$ liên tục ít nhất 5 phút.
+Mỗi lần hiệu chỉnh ghi lại độ trôi $|N - \hat n_{\text{room}}|$ để đánh giá.
+
+\section{Tổng hợp theo thời gian}\label{sec:tonghop}
+\begin{itemize}
+  \item \textbf{Mỗi giây:} writer cập nhật bảng \code{zone\_live} (giá trị mới nhất, trạng thái, thời điểm) cho dashboard.
+  \item \textbf{Mỗi 10 giây:} ghi \code{occupancy\_10s} gồm trung bình và cực đại của $\hat n_z$, cùng tỉ lệ mẫu hợp lệ.
+  \item \textbf{Mỗi phút:} ghi \code{occupancy\_1m} gồm trung bình, cực đại, p95 của $\hat n_z$, tỉ lệ mẫu có người, tỉ lệ mẫu hợp lệ.
+        p95 tính trong RAM từ các mẫu của phút đó vì không tính lại được từ giá trị trung bình.
+  \item \textbf{Theo giờ, ngày, tuần:} tính bằng truy vấn từ \code{occupancy\_1m} (trung bình có trọng số theo số mẫu hợp lệ).
+\end{itemize}
+Thời gian lưu dưới dạng UTC. Giờ mở cửa, ngày nghỉ và múi giờ của địa điểm (\code{Asia/Ho\_Chi\_Minh}) được áp dụng khi truy vấn, nên
+sửa giờ mở cửa không cần tính lại dữ liệu cũ.
+
+\section{Tham số mặc định}\label{sec:thamso}
+\begin{bang}
+\begin{xltabular}{\linewidth}{L{34mm}L{22mm}L{20mm}Y}
+\toprule
+\tabhead{Tham số} & \tabhead{Mặc định} & \tabhead{Khoảng thử} & \tabhead{Ý nghĩa} \\
+\midrule
+\endhead
+\code{sample\_fps} $f_s$ & 2 (phòng), 10 (cửa) & 1--5; 8--15 & Tần số lấy mẫu theo camera \\
+\code{imgsz} & 640 & 480--1280 & Kích thước đầu vào detector \\
+\code{conf} $s_{\min}$ & 0,30 & 0,20--0,45 & Ngưỡng độ tin cậy \\
+\code{min\_box\_h} $h_{\min}$ & 24 px & 16--48 & Chiều cao hộp tối thiểu \\
+\code{anchor\_y} $\alpha$ & 0,5 & 0,4--1,0 & Vị trí dọc của điểm neo \\
+\code{overlap\_min} $\tau$ & 0,3 & 0,2--0,5 & Ngưỡng chồng lấn khi \code{assign: overlap} \\
+\code{smooth\_window} $W$ & 5 mẫu & 3--9 (lẻ) & Cửa sổ trung vị \\
+\code{stale\_s} $T_{\text{stale}}$ & 10 s & 5--30 & Không có mẫu quá lâu thì \code{UNKNOWN} \\
+\code{seat.t\_in} & 10 s & 5--30 & Thời gian liên tục để mở phiên \\
+\code{seat.grace\_s} $G$ & 60 s & 30--180 & Ân hạn trước khi đóng phiên \\
+\code{seat.min\_session\_s} $d_{\min}$ & 30 s & 15--120 & Bỏ phiên ngắn hơn \\
+\code{stitch.max\_gap\_s} & 30 s & 10--90 & Thời gian chờ nối track \\
+\code{stitch.max\_dist} $\beta$ & 0,5 & 0,3--1,0 & Khoảng cách nối, theo bội số chiều cao hộp \\
+\code{door.hysteresis\_px} $\delta$ & 10 px & 5--25 & Dải trễ quanh vạch \\
+\code{door.min\_track\_age} $N_{\min}$ & 5 mẫu & 3--10 & Tuổi track tối thiểu \\
+\code{door.cooldown\_s} & 2 s & 1--5 & Chờ giữa hai lượt ngược chiều \\
+\bottomrule
+\end{xltabular}
+\end{bang}
+Mọi tham số chỉnh trên tập dev (mục~\ref{sec:dulieu}), không bao giờ chỉnh trên tập test.
+% ============================================================
+\chapter{Đặc tả chức năng}\label{ch:chucnang}
+% ============================================================
+
+\section{Yêu cầu chức năng và tiêu chí chấp nhận}
+\begin{bang}
+\begin{xltabular}{\linewidth}{L{10mm}L{32mm}Y L{44mm}}
+\toprule
+\tabhead{Mã} & \tabhead{Yêu cầu} & \tabhead{Mô tả} & \tabhead{Tiêu chí chấp nhận} \\
+\midrule
+\endhead
+FR01 & Nguồn video thống nhất & Reader chỉ đọc RTSP từ MediaMTX. Camera IP khai báo làm \code{source} trong MediaMTX; webcam và MP4 được đẩy lên bằng FFmpeg. & Ba loại nguồn chạy cùng lúc ở staging; mã reader có một lớp nguồn duy nhất \\
+FR02 & Timeout và kết nối lại & Timeout mở 5 s, timeout đọc 5 s; backoff 0,5 → 1 → 2 → 4 → 5 s (tối đa 5 s); trạng thái \code{ONLINE}, \code{RECONNECTING}, \code{OFFLINE} (sau 60 s không kết nối được). & Đạt mọi kịch bản bơm lỗi mục~\ref{sec:bomloi}; đạt M6 \\
+FR03 & Lấy mẫu và bộ đệm & $f_s$ theo camera; mỗi camera một ô shared memory; đếm số mẫu lấy, số mẫu bị ghi đè trước khi xử lý. & Mẫu bị bỏ $\le 1\%$ ở cấu hình chuẩn; độ trễ không tăng dần khi nguồn nhanh hơn khả năng xử lý \\
+FR04 & Detector cấu hình được & Backend \code{ort-cuda}, \code{ort-cpu}, \code{torch}; mô hình, \code{imgsz}, FP16, kích thước batch ở cấp engine; \code{conf}, \code{min\_box\_h} ở cấp camera. & Đổi backend chỉ bằng cấu hình; backend CPU chạy được toàn bộ smoke test trong CI \\
+FR05 & Không gian, vùng, vùng loại trừ & Site → không gian (space) → vùng. Vùng có nhóm, loại (\code{seat}, \code{area}, \code{room}), sức chứa, cách gán, điểm neo. Mỗi vùng thuộc một camera; một không gian có thể gồm vùng của nhiều camera. & Cấu hình sai làm đúng camera đó báo lỗi rõ ràng, camera khác chạy tiếp; cảnh báo khi vùng cùng nhóm chồng lấn \\
+FR06 & Occupancy trực tiếp & \code{zone\_live} cập nhật mỗi giây; trạng thái \code{UNKNOWN} khi quá $T_{\text{stale}}$ không có mẫu. & Đạt M5; mất camera hiển thị \code{UNKNOWN}, không hiển thị 0 \\
+FR07 & Phiên chỗ ngồi & Máy trạng thái mục~\ref{sec:ghe}. & Unit test các kịch bản đều xanh; đạt M3 \\
+FR08 & Phiên vùng mở & Tracking theo camera và nối track mục~\ref{sec:noitrack}; bật bằng \code{tracking.enabled}. & Báo cáo tỉ lệ phân mảnh trên tập test \\
+FR09 & Đếm qua cửa (tùy chọn) & Mục~\ref{sec:cua}; bật bằng \code{door\_counter.enabled}. & Unit test: đi qua, đứng trên vạch, quay đầu, vào--ra--vào, mất dấu ngắn \\
+FR10 & Tổng hợp và lưu giữ & Bảng 10 s, 1 phút, phiên; chính sách lưu giữ chạy hằng ngày. & Dữ liệu quá hạn bị xóa; dung lượng cơ sở dữ liệu tăng có giới hạn \\
+FR11 & REST API & Các endpoint mục~\ref{sec:api}; có phiên bản \code{/api/v1}; tài liệu OpenAPI tự sinh; phân trang bằng con trỏ. & Kiểm thử hợp đồng sinh từ OpenAPI đều xanh \\
+FR12 & WebSocket trực tiếp & Đẩy giá trị vùng khi thay đổi, tối đa mỗi giây một lần. & Dashboard cập nhật không cần tải lại trang \\
+FR13 & Dashboard & Các màn hình mục~\ref{sec:dashboard}. Mọi thư viện JS phục vụ từ máy chủ, không tải từ CDN. & Chạy trong mạng không có Internet; tải trang dưới 2 s trong LAN \\
+FR14 & Công cụ vẽ vùng & Mục~\ref{sec:zoneeditor}. & Không có ảnh nào được ghi ra đĩa (kiểm thử quyền riêng tư) \\
+FR15 & Xuất dữ liệu & CSV theo vùng hoặc không gian, theo khoảng; báo cáo tuần dạng HTML in được. & File CSV mở được bằng Excel, đúng múi giờ địa phương \\
+FR16 & Quan sát được & Log JSON có \code{camera\_id}, \code{zone\_id}; metric mục~\ref{sec:metric}; \code{/health} (còn sống) và \code{/ready} (sẵn sàng). & Cảnh báo bật đúng trong các kịch bản bơm lỗi \\
+FR17 & Bảo mật & Mật khẩu quản trị băm; token API có hai phạm vi \code{read} và \code{admin}; không có mật khẩu mặc định. & Gọi endpoint quản trị không có token trả 401; script cài đặt tự sinh bí mật \\
+FR18 & Đóng gói và triển khai & Compose có profile; image gắn số phiên bản; script cài đặt, nâng cấp, rollback; gói cài offline. & Đạt M8 \\
+FR19 & Sao lưu và phục hồi & Sao lưu trực tuyến hằng đêm, giữ 14 bản; script phục hồi. & Diễn tập phục hồi ở staging đạt trước mỗi bản phát hành \\
+FR20 & Quyền riêng tư & Chế độ production từ chối mọi tùy chọn ghi khung hình. & Đạt M9 \\
+\bottomrule
+\end{xltabular}
+\end{bang}
+
+\section{Cấu hình}\label{sec:cauhinh}
+Cấu hình chia thành một file site và mỗi camera một file. Mã định danh vùng là duy nhất trong toàn site.
+
+\begin{lstlisting}[language=yaml, caption={\file{configs/site.yaml}}]
+schema_version: 1
+site:
+  id: lib-floor2
+  name: "Thu vien tang 2"
+  timezone: Asia/Ho_Chi_Minh
+spaces:
+  - {id: library, name: "Thu vien", capacity: 16}
+  - {id: lab-a,   name: "Phong lab A", capacity: 6}
+opening_hours:
+  mon-fri: ["07:30-21:00"]
+  sat:     ["08:00-17:00"]
+  sun:     []
+holidays: ["2027-01-01"]
+engine:
+  backend: ort-cuda            # ort-cuda | ort-cpu | torch
+  model: /models/yolo11s-b8.onnx
+  imgsz: 640
+  fp16: true
+  max_batch: 8
+  batch_wait_ms: 50
+retention:
+  occupancy_10s_days: 30
+  occupancy_1m_days: 400
+  sessions_days: 400
+privacy:
+  debug_save_frames: false     # refused when OCC_ENV=production
+\end{lstlisting}
+
+\begin{lstlisting}[language=yaml, caption={\file{configs/cameras/lib-cam1.yaml}}]
+schema_version: 1
+camera_id: lib-cam1
+source: rtsp://mediamtx:8554/lib-cam1
+sample_fps: 2
+detector: {conf: 0.30, min_box_h: 24}
+exclusions:
+  - {id: poster-1, polygon: [[1040,90],[1180,90],[1180,260],[1040,260]]}
+zones:
+  - id: lib-t1-s1
+    space_id: library
+    group: seats
+    kind: seat
+    capacity: 1
+    assign: point
+    anchor_y: 0.55
+    polygon: [[212,402],[318,398],[322,488],[208,494]]
+  - id: lib-room-east
+    space_id: library
+    group: room
+    kind: room
+    capacity: 8
+    assign: overlap
+    overlap_min: 0.3
+    polygon: [[40,180],[1240,170],[1270,710],[20,715]]
+seat: {t_in_s: 10, grace_s: 60, min_session_s: 30}
+tracking: {enabled: false}
+door_counter: {enabled: false}
+\end{lstlisting}
+
+\begin{chuy}[Một không gian, nhiều camera]
+Thư viện lớn thường cần hai camera trở lên, và vùng nhìn của các camera có thể chồng nhau. Trong v1.0 không ghép người giữa
+các camera, nên \textbf{vùng} của các camera trong cùng không gian phải được vẽ không chồng lấn trên mặt bằng thật: mỗi camera
+phụ trách một phần. Số người của không gian là tổng các vùng nhóm \code{room} thuộc không gian đó. Kiểm tra cấu hình nhắc điều này
+khi một không gian có vùng từ nhiều camera.
+\end{chuy}
+
+\section{Mô hình dữ liệu}\label{sec:dulieu-schema}
+Thời gian lưu dạng số nguyên mili giây UTC (\code{ts\_ms}). Không có cột BLOB và không có \code{track\_id}.
+
+\begin{lstlisting}[language=SQL, caption={\file{src/occ/storage/schema.sql} (bản đầu, quản lý bằng Alembic)}]
+CREATE TABLE camera_status (
+  camera_id TEXT NOT NULL, ts_ms INTEGER NOT NULL,
+  state TEXT NOT NULL,              -- ONLINE | RECONNECTING | OFFLINE | ERROR
+  detail TEXT,
+  PRIMARY KEY (camera_id, ts_ms)) WITHOUT ROWID;
+
+CREATE TABLE zone_live (
+  zone_id TEXT PRIMARY KEY, space_id TEXT NOT NULL, ts_ms INTEGER NOT NULL,
+  n_smoothed INTEGER, state TEXT NOT NULL);     -- OK | UNKNOWN
+
+CREATE TABLE occupancy_10s (
+  zone_id TEXT NOT NULL, ts_ms INTEGER NOT NULL,
+  n_mean REAL, n_max INTEGER, valid_frac REAL NOT NULL,
+  PRIMARY KEY (zone_id, ts_ms)) WITHOUT ROWID;
+
+CREATE TABLE occupancy_1m (
+  zone_id TEXT NOT NULL, ts_ms INTEGER NOT NULL,
+  n_mean REAL, n_max INTEGER, n_p95 REAL,
+  occupied_frac REAL, valid_frac REAL NOT NULL, n_samples INTEGER NOT NULL,
+  PRIMARY KEY (zone_id, ts_ms)) WITHOUT ROWID;
+
+CREATE TABLE sessions (
+  session_id TEXT PRIMARY KEY, zone_id TEXT NOT NULL,
+  start_ms INTEGER NOT NULL, end_ms INTEGER NOT NULL, duration_s REAL NOT NULL,
+  method TEXT NOT NULL,             -- seat_state | track_stitch
+  n_fragments INTEGER NOT NULL DEFAULT 1,
+  interrupted INTEGER NOT NULL DEFAULT 0);
+CREATE INDEX idx_sessions_zone_start ON sessions(zone_id, start_ms);
+
+CREATE TABLE door_events (
+  event_id TEXT PRIMARY KEY, line_id TEXT NOT NULL,
+  ts_ms INTEGER NOT NULL, direction TEXT NOT NULL);   -- IN | OUT
+CREATE TABLE door_reconcile (
+  line_id TEXT NOT NULL, ts_ms INTEGER NOT NULL, drift INTEGER NOT NULL,
+  PRIMARY KEY (line_id, ts_ms)) WITHOUT ROWID;
+\end{lstlisting}
+
+\begin{bang}
+\begin{tabularx}{\linewidth}{L{30mm}L{26mm}Y}
+\toprule
+\tabhead{Bảng} & \tabhead{Lưu giữ} & \tabhead{Dung lượng ước tính (50 vùng)} \\
+\midrule
+\code{zone\_live} & chỉ giá trị hiện tại & không đáng kể \\
+\code{occupancy\_10s} & 30 ngày & khoảng 20 MB/ngày, khoảng 650 MB tổng\uoc \\
+\code{occupancy\_1m} & 400 ngày & khoảng 4 MB/ngày, khoảng 1,7 GB tổng\uoc \\
+\code{sessions} & 400 ngày & phụ thuộc lưu lượng; thường dưới 1 MB/ngày\uoc \\
+\code{camera\_status}, \code{door\_*} & 90 ngày & nhỏ \\
+Log container & xoay vòng 5 × 20 MB mỗi dịch vụ & tối đa khoảng 100 MB mỗi dịch vụ \\
+\bottomrule
+\end{tabularx}
+\end{bang}
+
+\section{REST API}\label{sec:api}
+\begin{bang}
+\begin{xltabular}{\linewidth}{L{62mm}L{14mm}Y}
+\toprule
+\tabhead{Endpoint} & \tabhead{Quyền} & \tabhead{Mô tả} \\
+\midrule
+\endhead
+\code{GET /health} & không & Tiến trình còn sống; dùng cho healthcheck của Docker \\
+\code{GET /ready} & không & Sẵn sàng: đọc được cơ sở dữ liệu, engine báo heartbeat trong 10 s gần nhất \\
+\code{GET /metrics} & mạng nội bộ & Metric Prometheus \\
+\code{GET /api/v1/spaces} & read & Không gian, sức chứa, số người hiện tại, số chỗ trống, trạng thái \\
+\code{GET /api/v1/zones?space\_id=} & read & Vùng, cấu hình rút gọn, giá trị trực tiếp \\
+\code{GET /api/v1/cameras} & read & Trạng thái, $f_s$ thực tế, tuổi khung cuối, tỉ lệ mẫu bị bỏ \\
+\code{GET /api/v1/occupancy} & read & Chuỗi thời gian theo \code{zone\_id} hoặc \code{space\_id}, \code{from}, \code{to}, \code{interval} (10s, 1m, 1h, 1d) \\
+\code{GET /api/v1/utilization} & read & $F$, $U$, $P$, $P^{95}$, $H$ và độ phủ dữ liệu; \code{group\_by} = \code{hour}, \code{day}, \code{weekday\_hour} \\
+\code{GET /api/v1/sessions} & read & Phiên theo vùng và khoảng thời gian; phân trang \code{limit}, \code{cursor} \\
+\code{GET /api/v1/door/counts} & read & Lượt IN/OUT theo khoảng (khi bật đếm cửa) \\
+\code{GET /api/v1/export.csv} & read & Xuất \code{kind} = \code{occupancy} hoặc \code{sessions}, theo giờ địa phương \\
+\code{WS /api/v1/ws/live} & read & Đẩy thay đổi của \code{zone\_live} và trạng thái camera \\
+\code{GET /api/v1/public/availability} & công khai & Số chỗ trống theo không gian; tắt được; không có lịch sử \\
+\code{GET /api/v1/admin/cameras/\{id\}/snapshot} & admin & Ảnh chụp đã làm mờ người, chỉ cho công cụ vẽ vùng \\
+\code{POST /api/v1/admin/config/validate} & admin & Kiểm tra một cấu hình camera, trả danh sách lỗi và cảnh báo \\
+\code{PUT /api/v1/admin/cameras/\{id\}/config} & admin & Lưu cấu hình đã kiểm tra, giữ bản cũ, yêu cầu engine nạp lại \\
+\bottomrule
+\end{xltabular}
+\end{bang}
+
+\begin{lstlisting}[caption={Ví dụ phản hồi \code{GET /api/v1/utilization?space\_id=library\&from=2026-11-02\&to=2026-11-08\&group\_by=day}}]
+{
+  "space_id": "library", "capacity": 16, "timezone": "Asia/Ho_Chi_Minh",
+  "opening_hours_only": true,
+  "items": [
+    {"date": "2026-11-02", "fill_rate": 0.41, "time_utilization": 0.93,
+     "peak": 15, "peak_p95": 13, "seat_hours": 88.6, "coverage": 0.998},
+    {"date": "2026-11-03", "fill_rate": 0.47, "time_utilization": 0.95,
+     "peak": 16, "peak_p95": 14, "seat_hours": 101.2, "coverage": 0.971}
+  ]
+}
+\end{lstlisting}
+
+\section{Dashboard}\label{sec:dashboard}
+\begin{bang}
+\begin{tabularx}{\linewidth}{L{34mm}Y}
+\toprule
+\tabhead{Màn hình} & \tabhead{Nội dung} \\
+\midrule
+Tổng quan trực tiếp & Sơ đồ mặt bằng (file SVG do quản trị viên tải lên, mỗi không gian gắn với một phần tử SVG) tô màu theo mức lấp đầy; nếu chưa có sơ đồ thì hiển thị dạng thẻ. Huy hiệu trạng thái camera. \\
+Chi tiết không gian & Đường occupancy hôm nay so với mức điển hình (trung bình cùng thứ trong 4 tuần trước); thẻ $F$, $U$, cao điểm; phân bố thời lượng phiên. \\
+Bản đồ nhiệt & Mức lấp đầy theo thứ trong tuần × giờ cho khoảng thời gian đã chọn. \\
+So sánh không gian & Bảng sắp xếp theo $F$, $U$, $P^{95}$, kèm độ phủ dữ liệu; đánh dấu \enquote{thường quá tải} ($P^{95} \ge 0{,}9\,C$) và \enquote{dùng ít} ($U$ thấp hoặc $F$ thấp khi $U$ cao). \\
+Sức khỏe hệ thống & Trạng thái từng camera, $f_s$ thực tế, mẫu bị bỏ, GPU, dung lượng đĩa, thời điểm sao lưu gần nhất, phiên bản đang chạy. \\
+Trang chỗ trống công khai & Số chỗ trống theo không gian, tự làm mới; không có lịch sử, không cần đăng nhập. \\
+Quản trị & Công cụ vẽ vùng, quản lý token, xem lịch sử thay đổi cấu hình. \\
+\bottomrule
+\end{tabularx}
+\end{bang}
+
+\section{Công cụ vẽ vùng}\label{sec:zoneeditor}
+Vẽ vùng là bước lâu nhất khi lắp đặt ở địa điểm mới, nên cần một công cụ thay vì sửa tọa độ bằng tay.
+\begin{enumerate}
+  \item Quản trị viên chọn camera. API gọi endpoint nội bộ của engine để lấy ảnh chụp.
+  \item Engine lấy khung mới nhất, chạy detector, làm mờ (pixelate) mọi hộp người cộng thêm lề 10\%, mã hóa JPEG trong bộ nhớ và trả về.
+        Kèm theo là tọa độ điểm neo $p_\alpha$ của các detection.
+  \item API giữ ảnh trong RAM tối đa 10 phút để hiển thị, không ghi ra đĩa, và ghi log kiểm toán \enquote{ai xem ảnh chụp lúc nào}.
+  \item Trình duyệt hiển thị ảnh, điểm neo hiện tại và các vùng đã có. Quản trị viên vẽ hoặc sửa đa giác, đặt nhóm, loại, sức chứa.
+  \item Khi lưu: API kiểm tra cấu hình, giữ bản cũ trong \file{configs/.history/}, ghi file mới, yêu cầu engine nạp lại camera đó.
+\end{enumerate}
+% ============================================================
+\chapter{Yêu cầu phi chức năng}\label{ch:phichucnang}
+% ============================================================
+
+\section{Cấu hình chuẩn để so sánh}
+Mọi số đo hiệu năng báo cáo ở cấu hình chuẩn sau, trừ khi ghi khác: 8 luồng 1280×720 H.264, nguồn 10 FPS (luồng phụ của camera hoặc MP4 mô phỏng),
+$f_s = 2$ FPS, mô hình cỡ s, \code{imgsz} 640, ONNX Runtime CUDA FP16, \code{max\_batch} 8. Mỗi báo cáo phải ghi GPU, VRAM, CPU, RAM,
+phiên bản driver, CUDA, cuDNN, ONNX Runtime và commit hash.
+
+\begin{luuy}[Luồng mô phỏng không bằng camera thật]
+Luồng RTSP phát từ MP4 không có trễ mạng, mất gói hay lệch đồng hồ như camera thật. Benchmark trên luồng mô phỏng dùng để so sánh cấu hình;
+con số cuối cùng về số camera trên một GPU phải được xác nhận lại với ít nhất 2 camera thật ở staging.
+\end{luuy}
+
+\section{Bảng yêu cầu}
+\begin{bang}
+\begin{xltabular}{\linewidth}{L{28mm}Y L{44mm}}
+\toprule
+\tabhead{Nhóm} & \tabhead{Yêu cầu} & \tabhead{Cách kiểm} \\
+\midrule
+\endhead
+Hiệu năng & $\ge 8$ camera ở $f_s = 2$ trên một GPU, mẫu bị bỏ $\le 1\%$ (M4) & Benchmark mục~\ref{sec:benchmark} \\
+Độ tươi & p95 của $t_5 - t_0 \le 3$ s (M5) & Metric \code{occ\_freshness\_seconds} \\
+Phục hồi & Camera về \code{ONLINE} $\le 10$ s sau khi nguồn sống lại; camera khác không bị ảnh hưởng (M6) & Kịch bản bơm lỗi \\
+Ổn định & Soak 24 h: 0 crash, RAM tăng $< 10\%$ so với sau giờ đầu (M7); pilot 7 ngày, thời gian hoạt động $\ge 99\%$ & Soak test, pilot \\
+Tài nguyên & Ghi nhận GPU, VRAM, CPU, RAM theo số camera; chưa đặt ngưỡng & \code{nvidia-smi}, metric tiến trình \\
+Lưu trữ & Dung lượng cơ sở dữ liệu có giới hạn nhờ chính sách lưu giữ; cảnh báo khi ổ đĩa đầy trên 80\% & Kiểm thử lưu giữ; cảnh báo \\
+Bảo mật & Không có bí mật trong Git; không có mật khẩu mặc định; container chạy bằng user không phải root; endpoint quản trị cần token \code{admin} & Quét bí mật trong CI; kiểm thử API \\
+Quyền riêng tư & 0 file ảnh hoặc video được ghi ở production (M9); không lưu \code{track\_id} & Kiểm thử quyền riêng tư mục~\ref{sec:ktriengtu} \\
+Triển khai & Cài mới $\le 15$ phút bằng 1 lệnh; nâng cấp và rollback $\le 5$ phút, không mất dữ liệu (M8) & Diễn tập ở staging mỗi bản phát hành \\
+Bảo trì & Kiểu dữ liệu kiểm tra bằng mypy; độ phủ test của gói \code{analytics} $\ge 90\%$; mỗi quyết định kiến trúc có một ADR & CI \\
+Tái lập & Mọi bảng số đo sinh lại được bằng một lệnh từ commit và dữ liệu đã ghi & \code{make eval}, \code{make bench} \\
+Tính di động & Ubuntu 22.04 hoặc 24.04 LTS là nền tảng chính; Windows 11 với WSL2 dùng cho dev; chế độ chỉ CPU cho 1--2 camera & Chạy CI trên Linux; thử thủ công trên WSL2 \\
+\bottomrule
+\end{xltabular}
+\end{bang}
+
+\section{Metric và log}\label{sec:metric}
+\begin{bang}
+\begin{xltabular}{\linewidth}{L{62mm}L{18mm}Y}
+\toprule
+\tabhead{Metric} & \tabhead{Kiểu} & \tabhead{Ý nghĩa} \\
+\midrule
+\endhead
+\code{occ\_camera\_state\{camera\}} & gauge & 0 OFFLINE, 1 RECONNECTING, 2 ONLINE, 3 ERROR \\
+\code{occ\_samples\_total\{camera\}} & counter & Số mẫu đã lấy \\
+\code{occ\_samples\_dropped\_total\{camera\}} & counter & Mẫu bị ghi đè trước khi được xử lý \\
+\code{occ\_reconnects\_total\{camera\}} & counter & Số lần kết nối lại \\
+\code{occ\_batch\_size} & histogram & Kích thước batch thực tế \\
+\code{occ\_inference\_seconds} & histogram & $t_2 - t_1$ \\
+\code{occ\_freshness\_seconds} & histogram & $t_5 - t_0$, đo ở API khi đẩy WebSocket \\
+\code{occ\_zone\_occupancy\{zone\}} & gauge & $\hat n_z$ hiện tại; $-1$ khi \code{UNKNOWN} \\
+\code{occ\_db\_write\_seconds}, \code{occ\_db\_write\_errors\_total} & histogram, counter & Thời gian commit và số lỗi ghi \\
+\code{occ\_gpu\_util}, \code{occ\_gpu\_mem\_bytes} & gauge & Đọc bằng NVML \\
+\code{occ\_build\_info\{version,commit\}} & gauge & Phiên bản đang chạy, luôn bằng 1 \\
+\bottomrule
+\end{xltabular}
+\end{bang}
+Log ghi dạng JSON ra stdout, mỗi dòng có \code{ts}, \code{level}, \code{service}, \code{version}, và \code{camera\_id} hoặc \code{zone\_id}
+khi liên quan. Docker xoay vòng log theo kích thước. Log không chứa URL camera có mật khẩu: mật khẩu trong URL RTSP được che trước khi ghi.
+% ============================================================
+\chapter{Lộ trình từ A đến Z}\label{ch:lotrinh}
+% ============================================================
+
+\section{Nguyên tắc}
+\begin{enumerate}
+  \item \textbf{Bộ khung chạy được trước, tính năng sau.} Giai đoạn 0 dựng toàn bộ đường đi từ commit đến máy chạy thật (CI, image,
+        Compose, script deploy) với các thành phần còn rỗng. Từ đó trở đi, mỗi thay đổi chỉ là thêm vào một hệ thống vốn đã deploy được.
+  \item \textbf{Nhánh \code{main} luôn deploy được.} Chỉ merge khi CI xanh. Tính năng chưa xong nằm sau cờ cấu hình, mặc định tắt.
+  \item \textbf{Mỗi giai đoạn kết thúc bằng một bản phát hành có số hiệu} và được cài lên staging bằng đúng script dùng cho production.
+  \item \textbf{Đo trước, tối ưu sau.} Bộ dữ liệu đánh giá và lệnh \code{make eval} có trước thuật toán analytics; benchmark có trước tối ưu.
+  \item \textbf{Rủi ro lớn làm trước.} Docker thấy GPU (ngày đầu), detector thấy người ngồi (tuần đầu), quyền riêng tư (từ thiết kế).
+\end{enumerate}
+
+\section{Tổng quan tiến độ}
+Ước tính cho một người làm khoảng 20--25 giờ mỗi tuần\uoc. Các giai đoạn gối nhau một phần.
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[x=1mm, y=1mm]
+  \def\xz{34} \def\wk{11.2}
+  % grid
+  \foreach \w in {1,...,11} {
+    \fill[rowgray] ({\xz+(\w-1)*\wk},0) rectangle ({\xz+\w*\wk-0.4},-64);
+    \node[font=\sffamily\scriptsize, text=muted] at ({\xz+(\w-0.5)*\wk},3) {T\w};
+  }
+  % rows: name / start / end / release / colour
+  \foreach \i/\name/\s/\e/\rel/\c in {
+      0/{GĐ0 Nền móng}/0/0.6/v0.1/accent,
+      1/{GĐ1 Dữ liệu, khả thi}/0.4/2.0/v0.2/warn,
+      2/{GĐ2 Lõi analytics}/2.0/3.5/v0.3/accent,
+      3/{GĐ3 Đa camera}/3.3/5.0/v0.4/accent,
+      4/{GĐ4 API, lưu trữ}/5.0/6.0/v0.5/sig,
+      5/{GĐ5 Dashboard}/6.0/7.0/v0.6/sig,
+      6/{GĐ6 Vận hành}/7.0/8.0/v0.7/cpu,
+      7/{GĐ7 Tối ưu}/8.0/9.0/rc.1/cpu,
+      8/{GĐ8 Pilot, v1.0}/9.0/11.0/v1.0/ok} {
+    \node[anchor=east, font=\sffamily\scriptsize] at ({\xz-1.5},{-3.6-\i*7}) {\name};
+    \fill[\c!75, rounded corners=1.2pt] ({\xz+\s*\wk},{-1.4-\i*7}) rectangle ({\xz+\e*\wk-0.4},{-5.8-\i*7});
+    \fill[ink] ({\xz+\e*\wk-0.4},{-3.6-\i*7}) ++(0,1.6) -- ++(1.6,-1.6) -- ++(-1.6,-1.6) -- ++(-1.6,1.6) -- cycle;
+    \node[anchor=west, font=\sffamily\tiny\bfseries, text=ink] at ({\xz+\e*\wk+1.4},{-3.6-\i*7}) {\rel};
+  }
+  \draw[warn, line width=0.8pt, dash pattern=on 2pt off 1.5pt] ({\xz+2.0*\wk-0.2},1) -- ({\xz+2.0*\wk-0.2},-65);
+  \node[anchor=north, font=\sffamily\tiny, text=warn, align=center] at ({\xz+2.0*\wk-0.2},-65.5) {quyết định\\go/no-go};
+\end{tikzpicture}
+\caption{Tiến độ dự kiến theo tuần. Hình thoi là bản phát hành cuối mỗi giai đoạn.}
+\label{fig:gantt}
+\end{figure}
+
+% ---------------------------------------------------------------
+\begin{giaidoan}{Giai đoạn 0 · Nền móng và bộ khung chạy được}{Tuần 1 (3 ngày) · v0.1.0}
+\textbf{Mục tiêu.} Có đường đi hoàn chỉnh từ commit đến hệ thống chạy trên máy staging, trước khi có tính năng nào.
+
+\textbf{Công việc.}
+\begin{enumerate}
+  \item \textbf{Ngày đầu tiên:} cài driver NVIDIA, Docker, NVIDIA Container Toolkit trên PC GPU và chạy \code{nvidia-smi} bên trong một container.
+        Đây là rủi ro có thể chặn cả dự án, nên làm trước mọi việc khác.
+  \item Tạo repo theo Phụ lục~\ref{app:repo}: \file{pyproject.toml} quản lý bằng uv; ruff, mypy, pytest, pre-commit; README khung, CHANGELOG,
+        LICENSE; ADR đầu tiên trong \file{docs/adr/}.
+  \item Gói cấu hình: model Pydantic cho site và camera, \code{schema\_version: 1}, lệnh \code{occ config validate}, cấu hình mẫu.
+  \item Engine rỗng: supervisor, một reader đọc RTSP và đếm khung, detector giả luôn trả 0 người, writer ghi \code{zone\_live},
+        endpoint \code{/health} và \code{/metrics}.
+  \item API rỗng: \code{/health}, \code{/ready}, \code{/api/v1/spaces} đọc \code{zone\_live}; một trang dashboard tối thiểu.
+  \item Compose: \code{mediamtx}, \code{sim-publisher} (profile \code{sim}), \code{engine}, \code{api}, có healthcheck; file \file{.env.example}.
+  \item CI: lint, type check, test, build image, smoke test toàn hệ thống bằng profile \code{sim}; đẩy image gắn commit hash lên GHCR.
+  \item Bản đầu của \file{deploy/install.sh}, \file{deploy/deploy.sh}, \file{deploy/rollback.sh}; cài thử lên staging.
+\end{enumerate}
+\textbf{Xong khi.}
+\done Trên laptop không GPU, \code{git clone} rồi \code{make up-dev} chạy được toàn hệ thống.
+\done Staging chạy bằng \code{deploy.sh --version 0.1.0}; container engine thấy GPU.
+\done CI xanh trên \code{main}; image v0.1.0 có trên registry.
+
+\textbf{Bản deploy cuối giai đoạn.} Hệ thống chạy end-to-end, dashboard hiển thị camera \code{ONLINE}; số người luôn bằng 0.
+\end{giaidoan}
+
+% ---------------------------------------------------------------
+\begin{giaidoan}{Giai đoạn 1 · Dữ liệu, baseline và phép thử khả thi}{Tuần 1--2 · v0.2.0}
+\textbf{Mục tiêu.} Trả lời câu hỏi rủi ro nhất (detector có thấy người ngồi không) và có bộ dữ liệu đánh giá trước khi viết analytics.
+
+\textbf{Công việc.}
+\begin{enumerate}
+  \item Xin phép và quay clip ở ít nhất 2 không gian, tổng tối thiểu 6 giờ\uoc, trải đều các mức đông (vắng, vừa, đông), ánh sáng (ban ngày, đèn,
+        chập tối) và có đoạn phòng trống hoàn toàn để bắt false positive cố định. Ghi lại vị trí, độ cao, góc camera.
+  \item Chạy phép thử khả thi mục~\ref{sec:gonogo}; ghi quyết định vào một ADR.
+  \item Công cụ \code{occ tools sample-frames} trích khung mỗi 15 s; gán nhãn theo giao thức mục~\ref{sec:dulieu}; chia dev/test theo \emph{ngày quay},
+        không chia theo khung, để tránh hai khung gần giống nhau rơi vào hai tập.
+  \item Đưa detector thật vào engine: xuất ONNX với batch động, chạy bằng ONNX Runtime CUDA và CPU.
+  \item Công cụ \code{occ tools cache-detections} lưu detection của mọi clip ra JSONL, để test và đánh giá analytics không cần GPU.
+  \item Đo baseline: recall và precision theo tư thế và mức che, thời gian suy luận theo kích thước batch.
+  \item Chốt các ngưỡng M1--M9 từ số đo baseline, ghi vào \file{docs/targets.md}.
+\end{enumerate}
+\textbf{Xong khi.}
+\done Quyết định go/no-go được ghi lại kèm số đo.
+\done Tập test được đóng băng: danh sách file và mã băm nằm trong repo, không ai chỉnh tham số trên tập này.
+\done Dashboard hiển thị tổng số người theo từng camera.
+
+\textbf{Bản deploy cuối giai đoạn.} Đếm tổng số người mỗi camera theo thời gian thực, chưa có vùng.
+\end{giaidoan}
+
+% ---------------------------------------------------------------
+\begin{giaidoan}{Giai đoạn 2 · Lõi analytics}{Tuần 3--4 · v0.3.0}
+\textbf{Mục tiêu.} Toàn bộ thuật toán Chương~\ref{ch:thuattoan}, có test và có số đo độ chính xác trên tập test.
+
+\textbf{Công việc.}
+\begin{enumerate}
+  \item Giao diện \code{Clock} với \code{RealClock} và \code{FrameClock}.
+  \item Lọc detection, vùng loại trừ, gán vùng theo điểm và theo chồng lấn, quy tắc nhóm.
+  \item Làm mượt trung vị, trạng thái \code{UNKNOWN} khi thiếu mẫu, độ phủ dữ liệu.
+  \item Máy trạng thái chỗ ngồi và phiên, kể cả cờ \code{interrupted}.
+  \item Tracking theo camera và nối track (sau cờ \code{tracking.enabled}).
+  \item Đếm qua cửa (sau cờ \code{door\_counter.enabled}; là mục cắt đầu tiên nếu chậm).
+  \item Writer tổng hợp 10 s và 1 phút; truy vấn chỉ số sử dụng theo giờ mở cửa và múi giờ.
+  \item Unit test và property test (mục~\ref{sec:ktdonvi}); lệnh \code{make eval} chạy trên detection đã lưu và sinh bảng MAE, sai số $F$, $U$, chỉ số phiên.
+  \item Kiểm thử hồi quy độ chính xác trong CI trên một clip nhỏ có sẵn detection: CI đỏ nếu MAE xấu hơn baseline đã commit.
+  \item Chỉnh tham số trên tập dev; báo cáo kết quả trên tập test.
+\end{enumerate}
+\textbf{Xong khi.}
+\done Test xanh; độ phủ test gói \code{analytics} $\ge 90\%$.
+\done \code{make eval} sinh lại đúng bảng kết quả từ commit hiện tại.
+\done Có số đo M1--M3 lần đầu trên tập test.
+
+\textbf{Bản deploy cuối giai đoạn.} Occupancy và phiên theo vùng thật, nhưng vùng còn phải vẽ bằng tay trong YAML.
+\end{giaidoan}
+
+% ---------------------------------------------------------------
+\begin{giaidoan}{Giai đoạn 3 · Pipeline đa camera bền vững}{Tuần 4--5 · v0.4.0}
+\textbf{Mục tiêu.} Chạy nhiều camera, tự phục hồi, không rò bộ nhớ, một camera lỗi không ảnh hưởng camera khác.
+
+\textbf{Công việc.}
+\begin{enumerate}
+  \item Reader cho từng camera: RTSP qua TCP, timeout mở và đọc, backoff tối đa 5 s, ba trạng thái, che mật khẩu trong log.
+  \item Ô shared memory cho từng camera; bộ đếm mẫu bị bỏ.
+  \item Engine suy luận gộp batch theo \code{max\_batch} và \code{batch\_wait\_ms}; tự chuyển sang CPU khi cấu hình yêu cầu.
+  \item Supervisor: khởi động lại tiến trình con với backoff, heartbeat, đóng phiên đang mở khi lõi khởi động lại.
+  \item Nạp lại cấu hình theo từng camera; lỗi cấu hình chỉ dừng đúng camera đó.
+  \item Writer: một luồng ghi, gom giao dịch, chạy chính sách lưu giữ hằng ngày.
+  \item Script đẩy webcam (Linux dùng \code{v4l2}, Windows dùng \code{dshow}) và publisher mô phỏng cho $N$ clip.
+  \item Bộ bơm lỗi \code{make chaos} cho mọi kịch bản mục~\ref{sec:bomloi}.
+\end{enumerate}
+\textbf{Xong khi.}
+\done Mọi kịch bản bơm lỗi đạt.
+\done 8 camera mô phỏng chạy trên staging, mẫu bị bỏ $\le 1\%$.
+\done Soak sơ bộ 8 giờ không crash.
+
+\textbf{Bản deploy cuối giai đoạn.} Nhiều camera, tự phục hồi; dùng được cho một phòng thật nếu chấp nhận vẽ vùng bằng tay.
+\end{giaidoan}
+
+% ---------------------------------------------------------------
+\begin{giaidoan}{Giai đoạn 4 · API và lưu trữ}{Tuần 6 · v0.5.0}
+\textbf{Mục tiêu.} API đầy đủ, ổn định, có phiên bản, để dashboard và hệ thống khác dùng được.
+
+\textbf{Công việc.}
+\begin{enumerate}
+  \item Migration đầu tiên bằng Alembic; test trong CI nâng cấp từ cơ sở dữ liệu mẫu của bản phát hành trước.
+  \item Các endpoint mục~\ref{sec:api} với model phản hồi Pydantic, OpenAPI, phân trang bằng con trỏ.
+  \item Xác thực: token phạm vi \code{read} và \code{admin}; mật khẩu quản trị băm bằng Argon2 hoặc bcrypt; CORS giới hạn.
+  \item WebSocket trạng thái trực tiếp.
+  \item Xuất CSV theo giờ địa phương.
+  \item Kiểm thử hợp đồng sinh từ OpenAPI (ví dụ Schemathesis) và kiểm thử tích hợp với cơ sở dữ liệu có dữ liệu mẫu.
+\end{enumerate}
+\textbf{Xong khi.}
+\done Kiểm thử hợp đồng xanh; gọi endpoint quản trị không có token trả 401.
+\done Nâng cấp cơ sở dữ liệu từ v0.4 lên v0.5 không mất dữ liệu.
+
+\textbf{Bản deploy cuối giai đoạn.} API dùng được cho bên thứ ba; dashboard vẫn ở mức tối thiểu.
+\end{giaidoan}
+
+% ---------------------------------------------------------------
+\begin{giaidoan}{Giai đoạn 5 · Dashboard và công cụ vẽ vùng}{Tuần 7 · v0.6.0}
+\textbf{Mục tiêu.} Người không biết code tự lắp đặt camera, vẽ vùng và đọc báo cáo được.
+
+\textbf{Công việc.}
+\begin{enumerate}
+  \item Màn hình tổng quan trực tiếp, chi tiết không gian, bản đồ nhiệt, so sánh không gian, sức khỏe hệ thống (mục~\ref{sec:dashboard}).
+  \item Trang chỗ trống công khai.
+  \item Công cụ vẽ vùng với ảnh đã làm mờ, lớp điểm neo, kiểm tra, lưu, nạp lại, lịch sử (mục~\ref{sec:zoneeditor}).
+  \item Đưa mọi thư viện JS vào thư mục tĩnh, không dùng CDN.
+  \item Hai đến ba kiểm thử trình duyệt (ví dụ Playwright) cho các luồng chính: xem tổng quan, vẽ và lưu một vùng.
+\end{enumerate}
+\textbf{Xong khi.}
+\done Một người mới, chỉ đọc tài liệu, vẽ xong vùng cho một camera trong $\le 15$ phút.
+\done Kiểm thử quyền riêng tư vẫn đạt sau khi có công cụ chụp ảnh.
+
+\textbf{Bản deploy cuối giai đoạn.} Phần mềm đầy đủ tính năng người dùng; chưa đủ công cụ vận hành.
+\end{giaidoan}
+
+% ---------------------------------------------------------------
+\begin{giaidoan}{Giai đoạn 6 · Vận hành, bảo mật, sao lưu}{Tuần 8 · v0.7.0}
+\textbf{Mục tiêu.} Người khác vận hành được hệ thống mà không cần hỏi tác giả.
+
+\textbf{Công việc.}
+\begin{enumerate}
+  \item Profile \code{monitoring}: Prometheus, Grafana, dashboard dạng JSON trong repo, luật cảnh báo mục~\ref{sec:canhbao}.
+  \item Dịch vụ sao lưu hằng đêm bằng online backup của SQLite; script phục hồi; diễn tập phục hồi.
+  \item Hoàn thiện \file{install.sh}: kiểm tra driver, Docker, NVIDIA Container Toolkit; tự sinh bí mật; kéo image; chạy migration; chờ \code{/ready}.
+        Thêm gói cài offline (image xuất bằng \code{docker save}) cho nơi không có Internet.
+  \item Nâng cấp và rollback: tự sao lưu trước migration; diễn tập ở staging.
+  \item Bảo mật: container chạy user không phải root; quét bí mật (ví dụ gitleaks) và quét image (ví dụ Trivy) trong CI; profile \code{proxy} với Caddy và HTTPS nội bộ.
+  \item Soak 24 giờ trên staging; sửa rò bộ nhớ nếu có.
+  \item Tài liệu \file{docs/deployment.md}, \file{docs/operations.md} (runbook), \file{docs/privacy.md}.
+\end{enumerate}
+\textbf{Xong khi.}
+\done Đạt M7 và M8; diễn tập phục hồi đạt.
+\done Mọi cảnh báo đều có một mục trong runbook.
+
+\textbf{Bản deploy cuối giai đoạn.} Phần mềm vận hành được bởi người khác.
+\end{giaidoan}
+
+% ---------------------------------------------------------------
+\begin{giaidoan}{Giai đoạn 7 · Tối ưu và benchmark}{Tuần 9 · v0.9.0-rc.1}
+\textbf{Mục tiêu.} Biết chính xác hệ thống chạy được bao nhiêu camera, ở cấu hình nào, với độ chính xác bao nhiêu. Đóng băng tính năng.
+
+\textbf{Công việc.}
+\begin{enumerate}
+  \item Chạy ma trận benchmark mục~\ref{sec:benchmark} bằng \code{make bench}; lưu CSV kèm phần cứng và commit hash.
+  \item Kiểm tra độ chính xác sau FP16: MAE không xấu hơn FP32 quá 0,05 người/mẫu; $F$ và $U$ không lệch quá 1 điểm phần trăm.
+  \item Tinh chỉnh \code{max\_batch}, \code{batch\_wait\_ms}, \code{imgsz}; thử decode bằng phần cứng và TensorRT EP nếu còn thời gian.
+  \item Xác định số camera tối đa trên GPU staging (M4).
+  \item Đóng băng tính năng; phát hành bản ứng viên và soak 24 giờ.
+\end{enumerate}
+\textbf{Xong khi.}
+\done Báo cáo benchmark sinh lại được bằng một lệnh.
+\done Bản ứng viên qua soak 24 giờ.
+
+\textbf{Bản deploy cuối giai đoạn.} Bản ứng viên phát hành, sẵn sàng cho pilot.
+\end{giaidoan}
+
+% ---------------------------------------------------------------
+\begin{giaidoan}{Giai đoạn 8 · Pilot và phát hành v1.0}{Tuần 10--11 · v1.0.0}
+\textbf{Mục tiêu.} Chứng minh phần mềm chạy được ở một địa điểm thật trong một tuần, theo đúng tài liệu triển khai.
+
+\textbf{Công việc.}
+\begin{enumerate}
+  \item Chuẩn bị địa điểm: biển thông báo, đồng ý của người phụ trách, lắp camera, mạng (Chương~\ref{ch:riengtu} và mục~\ref{sec:buoctrienkhai}).
+  \item Cài bản ứng viên bằng \file{install.sh}, làm đúng từng bước trong \file{docs/deployment.md}; ghi mọi chỗ vướng và sửa tài liệu.
+  \item Nghiệm thu tại hiện trường (mục~\ref{sec:nghiemthu}).
+  \item Chạy 7 ngày; theo dõi cảnh báo; kiểm tra nhanh mỗi ngày.
+  \item Báo cáo đánh giá cuối: độ chính xác trên tập test và trên số đếm tay ở pilot, số đo hệ thống, giới hạn đã biết.
+  \item Phát hành v1.0.0: CHANGELOG, tag, GitHub Release kèm gói triển khai; video demo 1--2 phút đã làm mờ người; README hoàn chỉnh.
+\end{enumerate}
+\textbf{Xong khi.} Mọi mục trong Definition of Done (Chương~\ref{ch:dod}) đều đạt.
+
+\textbf{Bản deploy cuối giai đoạn.} v1.0.0.
+\end{giaidoan}
+
+\section{Dự phòng và phiên bản rút gọn}
+\begin{chuy}[Thứ tự cắt khi chậm tiến độ]
+Cắt theo thứ tự: (1) đếm qua cửa, (2) phiên trong vùng mở và nối track, (3) Grafana (giữ endpoint \code{/metrics}),
+(4) sơ đồ mặt bằng SVG (giữ dạng thẻ), (5) TensorRT. \textbf{Không bao giờ cắt:} phép thử khả thi, tập test đóng băng, kiểm thử bơm lỗi,
+kiểm thử quyền riêng tư, sao lưu, rollback.
+\end{chuy}
+
+\begin{meo}[Nếu chỉ có 5--6 tuần cho portfolio]
+Làm đầy đủ Giai đoạn 0--3; Giai đoạn 4 chỉ gồm \code{spaces}, \code{occupancy}, \code{utilization}; Giai đoạn 5 chỉ gồm màn hình tổng quan và
+bản đồ nhiệt, vẽ vùng bằng một script nhỏ; soak 8 giờ thay vì 24 giờ. Kết quả là v0.6 vẫn deploy được bằng một lệnh và đủ để demo.
+README cần ghi rõ phần nào chưa làm.
+\end{meo}
+% ============================================================
+\chapter{Quy trình phát triển và phát hành liên tục}\label{ch:quytrinh}
+% ============================================================
+
+\enquote{Deploy được bất cứ lúc nào} không phải là một tính năng làm ở cuối dự án, mà là kết quả của một quy trình áp dụng từ commit đầu tiên.
+Chương này mô tả quy trình đó.
+
+\section{Nhánh và commit}
+\begin{itemize}
+  \item \textbf{Trunk-based:} nhánh tính năng sống tối đa 2--3 ngày, merge vào \code{main} qua pull request khi CI xanh. Không có nhánh \code{develop}.
+  \item \textbf{Conventional Commits} (\code{feat:}, \code{fix:}, \code{perf:}, \code{docs:}, \code{chore:}; thêm \code{!} khi thay đổi không tương thích) để sinh CHANGELOG tự động.
+  \item \textbf{Mẫu pull request} có danh sách kiểm: đã thêm test, đã cập nhật tài liệu, có migration hay không, có thay đổi cấu hình hay không.
+  \item \textbf{Tính năng chưa xong} nằm sau cờ cấu hình mặc định tắt, nên merge sớm mà không ảnh hưởng bản đang chạy.
+\end{itemize}
+
+\section{Pipeline CI/CD}
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[x=1mm, y=1mm, every node/.style={font=\sffamily\scriptsize}]
+  \tikzset{ci/.style={blk=#1, text width=21mm, minimum height=11mm, font=\sffamily\scriptsize}}
+  \node[ci=accent] (a) at (12,0) {\textbf{Lint, type}\\ruff · mypy};
+  \node[ci=accent] (b) at (40,0) {\textbf{Test}\\unit · property};
+  \node[ci=accent] (c) at (68,0) {\textbf{Hồi quy}\\độ chính xác (CPU)};
+  \node[ci=accent] (d) at (96,0) {\textbf{Build}\\image · quét};
+  \node[ci=accent] (e) at (124,0) {\textbf{Smoke E2E}\\Compose · sim · CPU};
+  \node[ci=accent] (f) at (152,0) {\textbf{Riêng tư}\\quét volume};
+  \foreach \x/\y in {a/b,b/c,c/d,d/e,e/f} {\draw[flow] (\x) -- (\y);}
+  \node[ci=sig] (g) at (40,-24) {\textbf{Đẩy image}\\\code{:sha}};
+  \node[ci=sig] (h) at (68,-24) {\textbf{Deploy staging}\\runner tự host};
+  \node[ci=cpu] (i) at (110,-24) {\textbf{Hằng đêm}\\E2E GPU · bench ngắn};
+  \node[ci=ok]  (j) at (152,-24) {\textbf{Phát hành}\\tag \code{vX.Y.Z}};
+  \draw[flow] (f.south) -- ++(0,-6) -| (g.north);
+  \draw[flow] (g) -- (h);
+  \node[lbl, anchor=west] at (2,-13) {mọi pull request};
+  \node[lbl, anchor=west] at (2,-33) {khi merge vào \code{main}};
+  \node[lbl] at (110,-33) {lịch 02:00};
+  \node[lbl] at (152,-33) {khi đẩy tag};
+\end{tikzpicture}
+\caption{Các bước CI/CD. Hàng trên chặn merge; hàng dưới chạy sau khi merge, theo lịch hoặc khi gắn tag.}
+\end{figure}
+
+\begin{bang}
+\begin{xltabular}{\linewidth}{L{30mm}Y L{30mm}}
+\toprule
+\tabhead{Bước} & \tabhead{Nội dung} & \tabhead{Khi chạy} \\
+\midrule
+\endhead
+Lint, type & ruff (gồm luật cấm \code{cv2.imwrite} và \code{VideoWriter} ngoài \file{occ/tools/}), mypy & Mọi PR, chặn merge \\
+Test & Unit test, property test; báo cáo độ phủ & Mọi PR, chặn merge \\
+Hồi quy độ chính xác & \code{make eval} trên clip fixture có sẵn detection; so với baseline đã commit & Mọi PR, chặn merge \\
+Build & Build image bằng buildx có cache; quét bí mật và lỗ hổng image & Mọi PR, chặn merge \\
+Smoke E2E & Compose profile \code{sim}, backend \code{ort-cpu}, mô hình cỡ n, 2 camera, 3 phút: \code{/ready}, \code{zone\_live} thay đổi, kiểm thử hợp đồng API & Mọi PR, chặn merge \\
+Riêng tư & Quét volume và hệ thống file container tìm file ảnh hoặc video; kiểm tra schema không có BLOB; log không có mật khẩu & Mọi PR, chặn merge \\
+Đẩy image & Image gắn \code{:sha} lên GHCR & Merge vào \code{main} \\
+Deploy staging & Runner tự host trên PC staging chạy \code{deploy.sh --version sha-...} & Merge vào \code{main} (tùy chọn) \\
+Hằng đêm & E2E trên GPU, benchmark ngắn, soak 2 giờ & Theo lịch \\
+Phát hành & Image \code{:X.Y.Z}, GitHub Release kèm gói triển khai và CHANGELOG & Khi đẩy tag \code{vX.Y.Z} \\
+\bottomrule
+\end{xltabular}
+\end{bang}
+
+\begin{meo}[CI không cần GPU]
+Nhờ backend \code{ort-cpu} và detection đã lưu sẵn, toàn bộ các bước chặn merge chạy trên runner miễn phí. GPU chỉ cần cho bước hằng đêm và benchmark.
+\end{meo}
+
+\section{Phiên bản và tương thích}
+\begin{itemize}
+  \item \textbf{Ứng dụng:} SemVer. MAJOR khi thay đổi không tương thích ở API hoặc schema cấu hình; MINOR khi thêm tính năng; PATCH khi sửa lỗi.
+        Mọi image cùng một bản phát hành có cùng số phiên bản.
+  \item \textbf{API:} \code{/api/v1} giữ ổn định. Thay đổi phá vỡ đi vào \code{/api/v2}, và \code{/api/v1} được giữ thêm ít nhất một bản MINOR.
+  \item \textbf{Cấu hình:} trường \code{schema\_version}; lệnh \code{occ config migrate} nâng cấu hình cũ; engine từ chối cấu hình mới hơn phiên bản nó hiểu.
+  \item \textbf{Cơ sở dữ liệu:} Alembic, chỉ đi tiến. Migration theo kiểu \emph{mở rộng rồi thu gọn}: bản N thêm cột hoặc bảng mới nhưng vẫn ghi
+        dữ liệu theo cách cũ; bản N+1 mới bỏ phần cũ. Nhờ vậy mã của bản N−1 vẫn chạy trên schema của bản N, và rollback thường không cần phục hồi
+        dữ liệu. Migration nào không tuân theo quy tắc này phải ghi trong CHANGELOG là \enquote{rollback cần phục hồi bản sao lưu}.
+\end{itemize}
+
+\section{Cờ tính năng}
+\begin{bang}
+\begin{tabularx}{\linewidth}{L{50mm}L{16mm}Y}
+\toprule
+\tabhead{Cờ} & \tabhead{Mặc định} & \tabhead{Bật khi} \\
+\midrule
+\code{tracking.enabled} & tắt & Camera có vùng \code{area} cần thời gian lưu trú theo người \\
+\code{door\_counter.enabled} & tắt & Có camera nhìn cửa ở 10 FPS \\
+\code{api.public\_availability} & tắt & Tổ chức đồng ý công khai số chỗ trống \\
+\code{dashboard.floorplan} & tắt & Đã tải lên sơ đồ mặt bằng SVG \\
+\code{privacy.debug\_save\_frames} & tắt & Chỉ ở dev; bị từ chối khi \code{OCC\_ENV=production} \\
+\bottomrule
+\end{tabularx}
+\end{bang}
+
+\section{Danh sách kiểm trước khi phát hành}
+\done CI xanh trên commit được gắn tag; hồi quy độ chính xác không xấu đi.
+\done Soak 24 giờ trên staging với bản ứng viên (từ v0.7 trở đi).
+\done Diễn tập nâng cấp từ bản trước và rollback về bản trước trên staging.
+\done Diễn tập phục hồi bản sao lưu.
+\done CHANGELOG ghi rõ migration, thay đổi cấu hình, thay đổi API, và rollback có cần phục hồi hay không.
+\done Tài liệu triển khai và runbook khớp với bản này.
+
+\section{Cài đặt, nâng cấp, rollback}\label{sec:deploy}
+Máy đích chỉ cần driver NVIDIA, Docker Engine với Compose plugin và NVIDIA Container Toolkit. Mọi thứ khác nằm trong gói triển khai.
+
+\begin{lstlisting}[language=bash, caption={Ba lệnh vận hành chính}]
+# Fresh install
+tar xzf occ-deploy-1.0.0.tar.gz && cd occ-deploy-1.0.0
+sudo ./install.sh                 # check env, generate secrets, pull images, migrate, wait /ready
+
+# Upgrade
+./deploy.sh --version 1.1.0       # backup -> pull -> migrate -> restart -> wait /ready -> auto-rollback on failure
+
+# Roll back to the previous version
+./rollback.sh                     # previous version; restores backup only if CHANGELOG requires it
+\end{lstlisting}
+
+\subsubsection{\file{deploy.sh} làm gì}
+\begin{enumerate}
+  \item Kiểm tra phiên bản đích tồn tại trên registry (hoặc trong gói offline) và đọc ghi chú tương thích.
+  \item Sao lưu cơ sở dữ liệu và thư mục cấu hình, ghi phiên bản hiện tại vào \file{deploy/.previous}.
+  \item Kéo image mới; chạy \code{occ config migrate --check}; chạy migration cơ sở dữ liệu.
+  \item Khởi động lại dịch vụ với \code{OCC\_VERSION} mới; chờ \code{/ready} tối đa 120 s.
+  \item Nếu không sẵn sàng: tự rollback (bước 2 đảo ngược), ghi log lý do, thoát với mã lỗi.
+\end{enumerate}
+% ============================================================
+\chapter{Kiểm thử và đánh giá}\label{ch:kiemthu}
+% ============================================================
+
+\section{Các tầng kiểm thử}\label{sec:ktdonvi}
+\begin{bang}
+\begin{xltabular}{\linewidth}{L{30mm}Y L{30mm}L{24mm}}
+\toprule
+\tabhead{Tầng} & \tabhead{Phạm vi} & \tabhead{Công cụ} & \tabhead{Khi chạy} \\
+\midrule
+\endhead
+Unit & Hình học, gán vùng, làm mượt, máy trạng thái, nối track, đếm cửa, tổng hợp, kiểm tra cấu hình & pytest & Mọi PR \\
+Property & Bất biến đúng với mọi đầu vào (xem bên dưới) & Hypothesis & Mọi PR \\
+Hồi quy độ chính xác & Analytics trên detection đã lưu của clip fixture & \code{make eval} & Mọi PR \\
+Tích hợp & Reader với MediaMTX thật; writer với SQLite thật; API với cơ sở dữ liệu có dữ liệu mẫu & pytest, Docker & Mọi PR \\
+Hợp đồng API & Mọi endpoint đúng với OpenAPI & Schemathesis & Mọi PR \\
+Smoke E2E & Toàn hệ thống bằng Compose, backend CPU & pytest, Compose & Mọi PR \\
+Trình duyệt & Xem tổng quan, vẽ và lưu vùng & Playwright & Mọi PR (từ v0.6) \\
+Hiệu năng & Ma trận benchmark & \code{make bench} & Hằng đêm (ngắn), trước phát hành (đủ) \\
+Bơm lỗi & Kịch bản mục~\ref{sec:bomloi} & \code{make chaos} & Trước phát hành \\
+Soak & 24 giờ liên tục & \code{make soak} & Trước phát hành (từ v0.7) \\
+Quyền riêng tư & Mục~\ref{sec:ktriengtu} & pytest, script quét & Mọi PR \\
+\bottomrule
+\end{xltabular}
+\end{bang}
+
+\subsubsection{Kịch bản unit test bắt buộc}
+\begin{itemize}
+  \item \textbf{Chỗ ngồi:} ngồi liên tục; mất 1--2 mẫu; rời 30 s rồi quay lại (vẫn một phiên); rời 90 s (thành hai phiên); đi ngang 5 s (không có phiên);
+        camera mất kết nối giữa phiên (\code{UNKNOWN}; quá $G$ thì đóng phiên tại $t_{\text{last}}$ với cờ \code{interrupted}).
+  \item \textbf{Gán vùng:} hộp ở biên giữa hai vùng; hai vùng cùng nhóm chồng lấn; điểm neo trong vùng loại trừ; vùng nhiều nhóm.
+  \item \textbf{Nối track:} đổi ID tại chỗ (phải nối); người khác xuất hiện gần đó sau khi người đầu rời đi quá $G$ (không được nối).
+  \item \textbf{Đếm cửa:} đi qua; đứng trên vạch; quay đầu giữa chừng; vào, ra, vào lại (2 IN); mất dấu ngắn khi đang qua vạch.
+  \item \textbf{Tổng hợp:} khoảng có mẫu \code{UNKNOWN}; ranh giới ngày theo giờ địa phương; ngày nghỉ; đổi giờ mở cửa.
+\end{itemize}
+
+\subsubsection{Bất biến cho property test}
+$\hat n_z(k) \ge 0$; $\hat n_z(k)$ không vượt quá số detection lớn nhất trong cửa sổ; các phiên của cùng một chỗ ngồi không chồng nhau;
+$H_z(T) \le C_z \cdot |T|$ khi không có vùng quá tải; kết quả không phụ thuộc thứ tự camera trong batch; chạy lại với \code{FrameClock}
+cho kết quả giống hệt.
+
+\section{Bộ dữ liệu và giao thức gán nhãn}\label{sec:dulieu}
+\begin{enumerate}
+  \item \textbf{Nguồn:} clip tự quay ở Giai đoạn 1, có đồng ý bằng văn bản. Clip gốc chỉ lưu trên máy phát triển, mã hóa ổ đĩa, không đưa lên Git,
+        xóa theo thời hạn đã cam kết khi xin đồng ý.
+  \item \textbf{Nhãn số đếm:} trích một khung mỗi 15 s; công cụ gán nhãn hiển thị các vùng; người gán nhãn đếm số người \emph{thật sự đang ở} mỗi vùng
+        theo phán đoán của mình, không theo điểm neo. Nhãn phải phản ánh thực tế, không phản ánh thuật toán.
+  \item \textbf{Nhãn bounding box:} trên một phần tư số khung đã trích, vẽ hộp cho mọi người, kèm \code{posture} và \code{occluded}, để đo recall detector.
+  \item \textbf{Nhãn phiên:} với vùng chỗ ngồi, đánh dấu thời điểm bắt đầu và kết thúc mỗi lần có người ngồi, độ chính xác 1 s, bằng cách tua video.
+  \item \textbf{Kiểm tra chất lượng:} 10\% số khung được gán nhãn lần hai (người khác, hoặc chính mình sau một tuần). Nếu hai lần lệch nhau nhiều,
+        làm rõ quy tắc gán nhãn rồi gán lại phần bị ảnh hưởng.
+  \item \textbf{Chia tập:} dev và test theo ngày quay. Tập test có danh sách file và mã băm trong repo, chỉ dùng để báo cáo.
+\end{enumerate}
+\begin{luuy}[Ước tính công gán nhãn]
+Với 6 giờ video: khoảng 1\,440 khung số đếm, khoảng 4 giờ công\uoc; khoảng 360 khung bounding box, khoảng 6 giờ công\uoc;
+nhãn phiên khoảng 6--8 giờ công\uoc. Nên lên lịch phần này ngay trong Giai đoạn 1 vì Giai đoạn 2 phụ thuộc vào nó.
+\end{luuy}
+
+\section{Chỉ số đánh giá}\label{sec:chiso}
+Gọi $S$ là tập khung có nhãn, $n_z(s)$ là nhãn và $\hat n_z(s)$ là giá trị hệ thống tại khung $s$.
+\begin{bang}
+\begin{xltabular}{\linewidth}{L{36mm}Y}
+\toprule
+\tabhead{Chỉ số} & \tabhead{Định nghĩa} \\
+\midrule
+\endhead
+MAE số đếm & $\frac{1}{|S|}\sum_{s}|\hat n_z(s) - n_z(s)|$, theo từng vùng và gộp theo nhóm; báo cáo thêm tách theo mức đông: vắng ($n \le 0{,}3\,C$), vừa, đông ($n > 0{,}7\,C$) \\
+Tỉ lệ khớp chính xác & Tỉ lệ khung có $\hat n_z(s) = n_z(s)$ \\
+Độ lệch & $\frac{1}{|S|}\sum_{s}(\hat n_z(s) - n_z(s))$: dương là đếm thừa, âm là đếm thiếu. MAE không cho biết điều này \\
+Sai số chỉ số sử dụng & $|\hat F_z - F_z|$ và $|\hat U_z - U_z|$ theo từng giờ, tính $F$, $U$ từ nhãn với cùng công thức \\
+Recall detector & TP / (TP + FN) ở IoU $\ge 0{,}5$, tách theo \code{posture} và \code{occluded} \\
+Khớp phiên & Ghép phiên dự đoán với phiên thật bằng thuật toán Hungarian theo IoU thời gian, khớp khi IoU $\ge 0{,}5$; báo cáo precision, recall \\
+Sai số đầu, cuối phiên & Trung vị và p90 của $|\hat t_{\text{start}} - t_{\text{start}}|$ và $|\hat t_{\text{end}} - t_{\text{end}}|$ trên các cặp đã khớp \\
+Tỉ lệ phân mảnh & Số phiên dự đoán chồng lên một phiên thật, lấy trung bình; lý tưởng bằng 1 \\
+Đếm cửa & Ghép từng sự kiện với nhãn trong cửa sổ $\pm 1$ s, cùng chiều; báo cáo precision và recall thay vì sai số tổng, vì đếm thừa và đếm thiếu có thể bù trừ \\
+\bottomrule
+\end{xltabular}
+\end{bang}
+
+\section{Giao thức benchmark}\label{sec:benchmark}
+\begin{enumerate}
+  \item \textbf{Bước 1, so cấu hình ở 8 camera:} mô hình \{n, s\} × \code{imgsz} \{640, 960\} × backend \{PyTorch, ORT CUDA FP32, ORT CUDA FP16\}: 12 cấu hình.
+  \item \textbf{Bước 2, quét số camera:} với 2 cấu hình tốt nhất, chạy \{1, 4, 8, 12, 16\} camera: 10 cấu hình.
+  \item \textbf{Mỗi cấu hình:} khởi động 60 s không đo, đo 5 phút, lặp 3 lần, báo cáo trung vị. Tổng khoảng 6--7 giờ\uoc, chạy qua đêm.
+  \item \textbf{Ghi lại:} số camera tối đa với mẫu bị bỏ $\le 1\%$; p50 và p95 của thời gian suy luận và độ tươi; GPU util, VRAM; \textbf{CPU cho decode};
+        RAM. Ở $f_s = 2$, giới hạn rất có thể nằm ở decode trên CPU chứ không ở GPU; đây là giả thuyết cần đo để xác nhận.
+  \item \textbf{Kết quả} lưu CSV kèm commit hash, cấu hình và thông số phần cứng; \code{make bench} sinh lại toàn bộ bảng.
+  \item \textbf{Kiểm tra độ chính xác} của mỗi backend trên tập test theo ngưỡng ở Giai đoạn 7.
+\end{enumerate}
+
+\section{Kiểm thử bơm lỗi}\label{sec:bomloi}
+\begin{bang}
+\begin{xltabular}{\linewidth}{L{44mm}Y}
+\toprule
+\tabhead{Kịch bản} & \tabhead{Hành vi mong đợi} \\
+\midrule
+\endhead
+Dừng publisher của cam1 trong 30 s & cam1 chuyển \code{RECONNECTING}, vùng của cam1 thành \code{UNKNOWN}; camera khác không đổi; cam1 về \code{ONLINE} trong $\le 10$ s khi phát lại \\
+Khởi động lại container MediaMTX & Mọi reader tự kết nối lại, không cần khởi động lại engine \\
+Ngắt mạng một camera 90 s & Sau 60 s chuyển \code{OFFLINE} và cảnh báo; tự phục hồi khi có mạng \\
+Nguồn nhanh hơn khả năng xử lý & Độ tươi không tăng dần theo thời gian; mẫu bị bỏ tăng và được ghi log, metric \\
+Cấu hình sai (đa giác tự cắt, thiếu trường, \code{schema\_version} lạ) & Camera đó ở trạng thái \code{ERROR} với thông báo rõ ràng; camera khác chạy bình thường \\
+\code{kill -9} một reader & Supervisor khởi động lại trong $\le 5$ s; camera khác không bị ảnh hưởng \\
+\code{kill -9} tiến trình suy luận & Khởi động lại; phiên đang mở được đóng với cờ \code{interrupted}; cơ sở dữ liệu không hỏng \\
+Ổ đĩa đầy (volume nhỏ) & Metric lỗi ghi tăng, có cảnh báo, không lặp crash; tự ghi tiếp khi có chỗ trống \\
+Khởi động lại container api & Dashboard tự kết nối lại WebSocket; engine không bị ảnh hưởng \\
+Mất điện (tắt máy đột ngột) & Sau khi bật máy, mọi dịch vụ tự chạy; \code{PRAGMA integrity\_check} trả \code{ok} \\
+GPU không dùng được (lỗi driver) & Engine không sẵn sàng (\code{/ready} lỗi), cảnh báo rõ nguyên nhân; nếu cấu hình cho phép, chuyển sang CPU với ít camera hơn \\
+\bottomrule
+\end{xltabular}
+\end{bang}
+
+\section{Soak test}
+Chạy 24 giờ trên staging với 8 camera mô phỏng, 1 webcam và 1 camera thật. Mỗi giờ ghi RSS của từng tiến trình, VRAM, số file descriptor,
+kích thước cơ sở dữ liệu. Đạt khi không crash và RAM tăng dưới 10\% so với mốc sau giờ đầu tiên (M7). Bộ nhớ tăng đều theo giờ là dấu hiệu
+rò rỉ, kể cả khi chưa vượt ngưỡng.
+
+\section{Kiểm thử quyền riêng tư}\label{sec:ktriengtu}
+\begin{enumerate}
+  \item Chạy hệ thống 10 phút với profile \code{sim} và \code{OCC\_ENV=production}.
+  \item Quét mọi volume và thay đổi hệ thống file của container (\code{docker diff}) tìm file có chữ ký ảnh hoặc video (JPEG, PNG, WebP, MP4, MKV).
+        Đạt khi không có file nào.
+  \item Kiểm tra schema cơ sở dữ liệu không có cột BLOB và không có cột chứa \code{track}.
+  \item Kiểm tra log không chứa mật khẩu trong URL RTSP.
+  \item Kiểm tra cấu hình có \code{debug\_save\_frames: true} bị từ chối khi \code{OCC\_ENV=production}.
+  \item Kiểm tra tĩnh: luật lint cấm \code{cv2.imwrite} và \code{cv2.VideoWriter} ngoài \file{occ/tools/}.
+\end{enumerate}
+
+\section{Nghiệm thu tại hiện trường}\label{sec:nghiemthu}
+Sau khi cài ở một địa điểm mới, trước khi bàn giao:
+\begin{enumerate}
+  \item Ba lần đếm tay, mỗi lần 30 phút, ở ba mức đông khác nhau: cứ 2 phút đếm số người trong từng không gian và so với dashboard (15 mẫu mỗi lần).
+  \item Đạt khi MAE nằm trong ngưỡng M1 cộng biên 0,3 người (đếm tay tại chỗ cũng có sai số).
+  \item Rút dây một camera: cảnh báo xuất hiện, dashboard hiển thị \code{UNKNOWN}, cắm lại thì tự phục hồi.
+  \item Kiểm tra bản sao lưu đầu tiên đã được tạo và phục hồi thử được.
+  \item Biên bản nghiệm thu: phiên bản, số camera, số vùng, kết quả đếm tay, người phụ trách địa điểm ký xác nhận.
+\end{enumerate}
+% ============================================================
+\chapter{Triển khai và vận hành}\label{ch:trienkhai}
+% ============================================================
+
+\section{Yêu cầu phần cứng và phần mềm}
+\begin{bang}
+\begin{xltabular}{\linewidth}{L{26mm}L{50mm}Y}
+\toprule
+\tabhead{Hạng mục} & \tabhead{Tối thiểu (1--2 camera, chỉ CPU)} & \tabhead{Khuyến nghị (8 camera trở lên)} \\
+\midrule
+\endhead
+CPU & 4 nhân x86-64 & 8 nhân trở lên (decode video tốn CPU)\uoc \\
+RAM & 8 GB & 16 GB \\
+GPU & Không cần & NVIDIA, tối thiểu 6 GB VRAM\uoc \\
+Lưu trữ & SSD 128 GB & SSD 256 GB trở lên \\
+Mạng & Ethernet 100 Mbit/s & Ethernet gigabit; switch PoE cho camera \\
+Nguồn & — & UPS cho PC và switch \\
+Hệ điều hành & Ubuntu 22.04 hoặc 24.04 LTS & Ubuntu 24.04 LTS \\
+Phần mềm & Docker Engine với Compose plugin & Thêm driver NVIDIA và NVIDIA Container Toolkit, phiên bản theo bảng tương thích của CUDA \\
+Camera & Camera IP có RTSP, H.264 & Thêm luồng phụ 720p ở 5--10 FPS; gắn cao 2,5--3 m, nghiêng 30--45°\uoc, tránh ngược sáng \\
+\bottomrule
+\end{xltabular}
+\end{bang}
+Cấu hình khuyến nghị là ước tính ban đầu; con số thật lấy từ benchmark ở Giai đoạn 7.
+
+\section{Mô hình mạng}
+\begin{itemize}
+  \item Camera nằm trong VLAN riêng, không ra Internet. Chỉ PC xử lý truy cập được camera.
+  \item Dashboard và API phục vụ trong LAN qua Caddy với HTTPS (profile \code{proxy}); chỉ mở cổng 443 ra LAN.
+  \item Cổng RTSP 8554 và cổng metric chỉ dùng trong mạng Docker, không mở ra ngoài.
+  \item Sau khi cài đặt, hệ thống không cần Internet. Với nơi không có Internet, dùng gói cài offline.
+\end{itemize}
+
+\section{Các bước triển khai lần đầu}\label{sec:buoctrienkhai}
+\begin{enumerate}
+  \item \textbf{Khảo sát:} danh sách không gian, sức chứa, giờ mở cửa; vị trí lắp camera để thấy chỗ ngồi theo góc nghiêng; nguồn điện, mạng.
+  \item \textbf{Pháp lý và thông báo:} đồng ý của tổ chức; biển thông báo ở mọi lối vào khu có camera (Chương~\ref{ch:riengtu}).
+  \item \textbf{Lắp camera:} cấu hình luồng phụ, đặt mật khẩu riêng cho từng camera, đặt IP tĩnh hoặc giữ DHCP cố định.
+  \item \textbf{Chuẩn bị PC:} cài Ubuntu, driver NVIDIA, Docker, NVIDIA Container Toolkit; chạy \code{nvidia-smi} trong một container để kiểm tra.
+  \item \textbf{Cài phần mềm:} giải nén gói triển khai, chạy \code{sudo ./install.sh}. Script kiểm tra môi trường, tự sinh bí mật vào \file{.env},
+        kéo hoặc nạp image, chạy migration, khởi động và chờ \code{/ready}.
+  \item \textbf{Khai báo site:} sửa \file{configs/site.yaml} (không gian, sức chứa, giờ mở cửa, múi giờ); chạy \code{occ config validate}.
+  \item \textbf{Thêm camera:} thêm nguồn vào cấu hình MediaMTX và file camera; kiểm tra camera \code{ONLINE} trên trang sức khỏe hệ thống.
+  \item \textbf{Vẽ vùng:} dùng công cụ vẽ vùng cho từng camera; thêm vùng loại trừ cho poster, màn hình, gương.
+  \item \textbf{Kiểm tra phòng trống:} khi không có ai, mọi vùng phải bằng 0 trong 10 phút. Nếu không, thêm vùng loại trừ.
+  \item \textbf{Nghiệm thu:} theo mục~\ref{sec:nghiemthu}.
+  \item \textbf{Bật vận hành:} profile \code{monitoring}, kênh nhận cảnh báo (email hoặc webhook), kiểm tra bản sao lưu đầu tiên.
+  \item \textbf{Bàn giao:} tài khoản quản trị, token, runbook, biên bản nghiệm thu.
+\end{enumerate}
+
+\section{Thay đổi thường gặp}
+\begin{bang}
+\begin{tabularx}{\linewidth}{L{36mm}Y}
+\toprule
+\tabhead{Việc} & \tabhead{Cách làm} \\
+\midrule
+Thêm camera & Thêm nguồn trong MediaMTX và file camera; engine tự phát hiện file mới, không cần khởi động lại \\
+Sửa vùng & Công cụ vẽ vùng; bản cũ giữ trong \file{configs/.history/}; số liệu trước thời điểm sửa không bị tính lại \\
+Đổi giờ mở cửa & Sửa \file{site.yaml}; áp dụng khi truy vấn, nên báo cáo cũ cũng theo giờ mới; ghi lại thời điểm đổi trong nhật ký thay đổi \\
+Đổi mô hình & Đặt file ONNX mới vào volume \file{models}, sửa \code{engine.model}, khởi động lại engine; chạy \code{make eval} trên tập test trước khi đổi ở production \\
+Nâng cấp phần mềm & \code{./deploy.sh --version X.Y.Z} (mục~\ref{sec:deploy}) \\
+\bottomrule
+\end{tabularx}
+\end{bang}
+
+\begin{chuy}[Sửa vùng làm số liệu không còn so sánh được]
+Khi một vùng bị vẽ lại, số liệu trước và sau thời điểm đó đo trên hai định nghĩa khác nhau. Dashboard đánh dấu thời điểm sửa trên biểu đồ,
+và báo cáo so sánh qua mốc đó phải ghi chú.
+\end{chuy}
+
+\section{Giám sát và cảnh báo}\label{sec:canhbao}
+\begin{bang}
+\begin{xltabular}{\linewidth}{L{40mm}L{48mm}L{14mm}Y}
+\toprule
+\tabhead{Cảnh báo} & \tabhead{Điều kiện} & \tabhead{Mức} & \tabhead{Hành động đầu tiên} \\
+\midrule
+\endhead
+CameraOffline & \code{occ\_camera\_state} = 0 trong 5 phút & cao & Kiểm tra nguồn, mạng, đăng nhập camera \\
+CameraConfigError & \code{occ\_camera\_state} = 3 & cao & Đọc log của camera; chạy \code{occ config validate} \\
+SamplesDropped & Tỉ lệ mẫu bị bỏ $> 5\%$ trong 10 phút & trung bình & Kiểm tra tải GPU và CPU; giảm $f_s$ hoặc số camera \\
+FreshnessHigh & p95 \code{occ\_freshness\_seconds} $> 5$ s trong 10 phút & trung bình & Kiểm tra writer và cơ sở dữ liệu \\
+EngineNotReady & \code{/ready} của engine lỗi trong 2 phút & cao & Xem log engine; kiểm tra GPU bằng \code{nvidia-smi} \\
+DbWriteErrors & \code{occ\_db\_write\_errors\_total} tăng & cao & Kiểm tra ổ đĩa, quyền ghi, \code{integrity\_check} \\
+DiskAlmostFull & Ổ dữ liệu dùng $> 80\%$ & trung bình & Kiểm tra chính sách lưu giữ, dọn image cũ \\
+BackupMissing & Không có bản sao lưu mới trong 26 giờ & trung bình & Xem log dịch vụ sao lưu \\
+ZoneStuck & Một vùng giữ nguyên giá trị khác 0 suốt ngoài giờ mở cửa & thấp & Có thể là false positive cố định; thêm vùng loại trừ \\
+\bottomrule
+\end{xltabular}
+\end{bang}
+
+\section{Sao lưu và phục hồi}
+\begin{itemize}
+  \item Dịch vụ \code{backup} chạy hằng đêm, dùng online backup API của SQLite nên an toàn khi writer đang ghi. Giữ 14 bản; sao lưu cả thư mục cấu hình.
+  \item Nên chép bản sao lưu sang một ổ khác hoặc máy khác trong LAN. Bản sao lưu chỉ chứa số đếm, không chứa hình ảnh.
+  \item Phục hồi: \code{./restore.sh <file>} dừng engine và api, kiểm tra \code{integrity\_check} của bản sao lưu, thay file, khởi động lại.
+  \item Diễn tập phục hồi trên staging trước mỗi bản phát hành và mỗi quý ở production.
+\end{itemize}
+
+\section{Runbook sự cố}
+\begin{bang}
+\begin{xltabular}{\linewidth}{L{38mm}L{52mm}Y}
+\toprule
+\tabhead{Triệu chứng} & \tabhead{Kiểm tra} & \tabhead{Xử lý} \\
+\midrule
+\endhead
+Mọi camera \code{RECONNECTING} & \code{docker compose ps}: MediaMTX còn chạy? & Khởi động lại MediaMTX; reader tự kết nối lại \\
+Một camera \code{OFFLINE} & Ping camera; mở RTSP bằng \code{ffprobe} từ PC & Sửa mạng hoặc mật khẩu; cập nhật \file{.env} nếu đổi mật khẩu \\
+Số người luôn lớn hơn 0 khi phòng trống & Ảnh chụp của công cụ vẽ vùng có thấy poster hoặc màn hình? & Thêm vùng loại trừ \\
+Đếm thiếu khi đông & So recall theo mức đông trong báo cáo đánh giá & Đổi góc camera cao hơn; thử mô hình lớn hơn hoặc \code{imgsz} lớn hơn \\
+Engine lặp khởi động lại & \code{docker compose logs engine}; \code{nvidia-smi} trong container & Sửa driver hoặc toolkit; tạm chuyển backend CPU \\
+Dashboard không cập nhật & \code{/ready} của api; WebSocket trong công cụ dev của trình duyệt & Khởi động lại api; kiểm tra Caddy \\
+Sau nâng cấp bị lỗi & Log của \code{deploy.sh}; ghi chú tương thích trong CHANGELOG & \code{./rollback.sh} \\
+\bottomrule
+\end{xltabular}
+\end{bang}
+% ============================================================
+\chapter{Quyền riêng tư, bảo mật và giấy phép}\label{ch:riengtu}
+% ============================================================
+
+\section{Nguyên tắc}
+\begin{enumerate}
+  \item \textbf{Thu thập tối thiểu:} chỉ lưu số đếm theo vùng và phiên không gắn danh tính. Không lưu khung hình, không lưu \code{track\_id}, không nhận dạng khuôn mặt.
+  \item \textbf{Xử lý tại chỗ:} khung hình được xử lý trên PC tại địa điểm, không gửi lên cloud.
+  \item \textbf{Giới hạn mục đích:} dữ liệu chỉ dùng để đo mức sử dụng không gian. Hệ thống không được dùng để chấm công, đánh giá hiệu suất
+        hay kỷ luật cá nhân; README và tài liệu bàn giao ghi rõ điều này.
+  \item \textbf{Minh bạch:} biển thông báo ở mọi lối vào khu có camera; trang công khai giải thích hệ thống đo gì và không đo gì.
+  \item \textbf{Lưu giữ có thời hạn:} theo bảng lưu giữ ở mục~\ref{sec:dulieu-schema}.
+\end{enumerate}
+
+\section{Kiểm kê dữ liệu}
+\begin{bang}
+\begin{xltabular}{\linewidth}{L{34mm}L{30mm}L{26mm}Y}
+\toprule
+\tabhead{Dữ liệu} & \tabhead{Nơi lưu} & \tabhead{Thời hạn} & \tabhead{Ai truy cập} \\
+\midrule
+\endhead
+Khung hình & RAM của engine & Vài giây & Không ai; không ghi ra đĩa \\
+Ảnh chụp vẽ vùng (đã làm mờ người) & RAM của api & 10 phút & Quản trị viên; có log kiểm toán \\
+Số đếm theo vùng & SQLite & 30 hoặc 400 ngày & Người có token \code{read} \\
+Phiên chỗ ngồi & SQLite & 400 ngày & Người có token \code{read} \\
+Log hệ thống & Log Docker & Xoay vòng theo dung lượng & Quản trị viên \\
+Clip phục vụ phát triển & Máy phát triển, ổ mã hóa & Theo cam kết khi xin đồng ý & Nhóm phát triển \\
+\bottomrule
+\end{xltabular}
+\end{bang}
+
+\section{Thông báo và đồng ý}
+\begin{tcolorbox}[enhanced, boxrule=0.6pt, arc=2pt, colback=white, colframe=accentmid, left=10pt, right=10pt, top=7pt, bottom=7pt,
+  fonttitle=\sffamily\bfseries\small, coltitle=white, colbacktitle=accent, title={Mẫu biển thông báo}]
+\small\textbf{Khu vực có camera đo mức sử dụng không gian.}
+Camera dùng để đếm số người trong từng khu vực nhằm bố trí chỗ ngồi hợp lý hơn. Hệ thống không ghi hình, không lưu hình ảnh và không nhận dạng
+bất kỳ ai; chỉ lưu số người theo khu vực và thời gian. Thông tin thêm và liên hệ: [đơn vị phụ trách, email].
+\end{tcolorbox}
+
+Với clip quay để phát triển và đánh giá, cần đồng ý bằng văn bản của người xuất hiện trong clip, nêu rõ mục đích, nơi lưu, thời hạn xóa,
+và việc video demo công khai sẽ được làm mờ.
+
+\begin{canhbao}[Pháp lý]
+Hình ảnh người có thể nhận diện được là dữ liệu cá nhân. Việt Nam có quy định về bảo vệ dữ liệu cá nhân, và tổ chức nơi lắp đặt có thể có quy định nội bộ
+riêng. Trước khi triển khai thật, cần đối chiếu văn bản pháp luật đang có hiệu lực tại thời điểm đó và quy định của tổ chức. Tài liệu này không phải tư vấn pháp lý.
+\end{canhbao}
+
+\section{Bảo mật}
+\begin{itemize}
+  \item Bí mật (mật khẩu camera, token, mật khẩu quản trị) chỉ nằm trong \file{.env} trên máy đích, do \file{install.sh} sinh; \file{.env} không bao giờ vào Git.
+  \item Không có mật khẩu mặc định. Token có phạm vi \code{read} hoặc \code{admin}; thu hồi được.
+  \item Container chạy bằng user không phải root; hệ thống file gốc chỉ đọc khi có thể; volume cấu hình chỉ đọc với engine.
+  \item Camera trong VLAN riêng, mật khẩu riêng cho từng camera, tắt các dịch vụ không dùng trên camera.
+  \item Phụ thuộc được ghim phiên bản (\file{uv.lock}, tag image cụ thể); CI quét bí mật và lỗ hổng image.
+\end{itemize}
+
+\section{Giấy phép}
+\begin{bang}
+\begin{tabularx}{\linewidth}{L{40mm}L{34mm}Y}
+\toprule
+\tabhead{Thành phần} & \tabhead{Giấy phép} & \tabhead{Ghi chú} \\
+\midrule
+Ultralytics YOLO (mã và trọng số) & AGPL-3.0 & Dùng cho portfolio mã nguồn mở là phù hợp. Sản phẩm thương mại đóng cần giấy phép Enterprise hoặc mô hình có giấy phép thoáng hơn (ví dụ YOLOX, Apache-2.0). Chỉ chạy bằng ONNX Runtime không làm trọng số thoát khỏi giấy phép này \\
+ByteTrack & MIT & \\
+ONNX Runtime & MIT & \\
+OpenCV & Apache-2.0 & Phiên bản 4.5 trở lên \\
+FFmpeg & LGPL hoặc GPL & Tùy cách build; kiểm tra bản dùng trong image \\
+MediaMTX & MIT & \\
+FastAPI & MIT & \\
+SQLite & Public domain & \\
+Prometheus, Caddy & Apache-2.0 & \\
+Grafana & AGPL-3.0 & Dùng nguyên bản không sửa đổi trong profile tùy chọn \\
+Bộ dữ liệu công khai & Theo từng bộ & Nhiều bộ chỉ cho phép dùng phi thương mại; kiểm tra trước khi dùng \\
+\bottomrule
+\end{tabularx}
+\end{bang}
+Giấy phép có thể thay đổi giữa các phiên bản; kiểm tra lại file LICENSE của đúng phiên bản đang dùng.
+
+% ============================================================
+\chapter{Rủi ro và giảm thiểu}\label{ch:ruiro}
+% ============================================================
+\begin{bang}
+\begin{xltabular}{\linewidth}{L{40mm}L{14mm}Y}
+\toprule
+\tabhead{Rủi ro} & \tabhead{Mức} & \tabhead{Giảm thiểu} \\
+\midrule
+\endhead
+Detector bỏ sót nhiều người ngồi hoặc nhìn từ trên & cao & Phép thử khả thi ở tuần đầu (mục~\ref{sec:gonogo}); đổi góc camera; mô hình lớn hơn, \code{imgsz} lớn hơn, tiling; dự phòng mô hình phát hiện đầu người hoặc fine-tune \\
+Docker không thấy GPU & cao & Kiểm tra ngày đầu của Giai đoạn 0; ghim phiên bản driver, CUDA, cuDNN, ONNX Runtime theo bảng tương thích chính thức \\
+Không có địa điểm quay hoặc pilot & cao & Xin phép sớm, song song Giai đoạn 0; dự phòng phòng của bản thân, nhóm bạn có đồng ý \\
+Công gán nhãn nhiều hơn dự kiến & trung bình & Lấy mẫu 15 s thay vì gán nhãn liên tục; bắt đầu ngay Giai đoạn 1; giảm số giờ video trước khi giảm chất lượng nhãn \\
+Tracker đổi ID làm vỡ phiên & trung bình & Phiên theo trạng thái chỗ ngồi; nối track; báo cáo tỉ lệ phân mảnh \\
+False positive cố định (poster, màn hình) & trung bình & Vùng loại trừ; kiểm tra phòng trống; cảnh báo \code{ZoneStuck} \\
+Nhiều camera nhìn chồng một không gian & trung bình & Vùng không chồng lấn trên mặt bằng; kiểm tra cấu hình cảnh báo \\
+Decode trên CPU là nút thắt & trung bình & Dùng luồng phụ độ phân giải thấp, FPS thấp; đo CPU trong benchmark; decode bằng phần cứng nếu cần \\
+SQLite không đủ khi mở rộng & thấp & Lớp lưu trữ qua SQLAlchemy Core; chuyển PostgreSQL khi cần \\
+Người bị quay phản đối & trung bình & Thông báo rõ ràng; không ghi hình; giới hạn mục đích; trang giải thích công khai \\
+Phạm vi phình to & trung bình & Cờ tính năng; thứ tự cắt giảm ở Chương~\ref{ch:lotrinh}; đóng băng tính năng ở Giai đoạn 7 \\
+\bottomrule
+\end{xltabular}
+\end{bang}
+
+% ============================================================
+\chapter{Definition of Done cho v1.0}\label{ch:dod}
+% ============================================================
+\done Phép thử khả thi đã chạy; quyết định và số đo được ghi trong ADR.
+\done Tập test đóng băng; báo cáo M1--M3 trên tập test, tách theo mức đông, kèm độ lệch và độ phủ dữ liệu.
+\done Đạt M4--M9, hoặc có giải thích bằng số đo cho mục chưa đạt.
+\done Mọi kịch bản bơm lỗi ở mục~\ref{sec:bomloi} đạt; soak 24 giờ đạt.
+\done Kiểm thử quyền riêng tư đạt; không có ảnh hoặc video trên đĩa ở chế độ production.
+\done CI xanh; độ phủ test của \code{analytics} $\ge 90\%$; hồi quy độ chính xác chạy trong CI.
+\done Báo cáo benchmark tái lập được bằng \code{make bench} (CSV, script, thông số phần cứng).
+\done Cài mới bằng \file{install.sh}, nâng cấp bằng \file{deploy.sh}, rollback bằng \file{rollback.sh} đều đã diễn tập; diễn tập phục hồi đạt.
+\done Pilot 7 ngày ở địa điểm thật; nghiệm thu tại hiện trường đạt; có biên bản.
+\done Tài liệu: README (cài đặt, cấu hình, giới hạn, định nghĩa chỉ số), \file{deployment.md}, \file{operations.md}, \file{privacy.md}, các ADR, OpenAPI.
+\done GitHub Release v1.0.0 kèm gói triển khai, CHANGELOG, video demo 1--2 phút đã làm mờ người.
+% ============================================================
+\appendix
+% ============================================================
+
+\chapter{Cấu trúc repository}\label{app:repo}
+\begin{lstlisting}[caption={Cấu trúc đề xuất}]
+indoor-occupancy/
+  pyproject.toml  uv.lock  Makefile  docker-bake.hcl
+  docker-compose.yml  docker-compose.dev.yml  docker-compose.ci.yml  .env.example
+  README.md  CHANGELOG.md  LICENSE
+  .github/workflows/ci.yml  nightly.yml
+  configs/
+    schema/                    # JSON Schema generated from Pydantic models
+    examples/site.yaml  examples/cameras/*.yaml  mediamtx.yml
+  deploy/
+    install.sh  deploy.sh  rollback.sh  restore.sh  make_bundle.sh
+    caddy/Caddyfile  prometheus/  grafana/
+  docker/
+    Dockerfile.engine  Dockerfile.api  Dockerfile.tools
+  src/occ/
+    common/      config.py  clock.py  logging.py  ids.py  health.py
+    reader/      rtsp.py  sampler.py  shm.py  backoff.py
+    engine/      supervisor.py  batcher.py  detector_ort.py  detector_torch.py
+                 postprocess.py  pipeline.py  snapshot.py
+    analytics/   filters.py  assign.py  smoothing.py  seat_state.py
+                 tracking.py  stitching.py  door.py  aggregate.py
+    storage/     tables.py  writer.py  retention.py  backup.py  migrations/
+    api/         main.py  auth.py  ws.py  routes/  schemas.py
+    dashboard/   templates/  static/          # vendored JS, no CDN
+    tools/       simulate.py  sample_frames.py  cache_detections.py
+                 eval_counts.py  eval_sessions.py  onnx_fp16.py
+    cli.py                        # `occ` command
+  tests/
+    unit/  property/  integration/  e2e/  chaos/  soak/  privacy/
+    fixtures/    detections/  baseline.json  sample.db
+  bench/         run_bench.py  matrix.yaml  results/
+  docs/
+    architecture.md  deployment.md  operations.md  privacy.md  targets.md
+    adr/0001-record-architecture-decisions.md ...
+  data/          # gitignored: clips/, labels/, cache/
+\end{lstlisting}
+
+\chapter{File Compose mẫu}\label{app:compose}
+Tag image lấy từ \file{.env} (\code{OCC\_VERSION}, \code{MEDIAMTX\_TAG}, \dots) để mỗi lần deploy ghim đúng phiên bản.
+\begin{lstlisting}[language=yaml, caption={\file{docker-compose.yml}}]
+name: occupancy
+
+x-common: &common
+  restart: unless-stopped
+  env_file: .env
+  networks: [internal]
+  logging:
+    driver: json-file
+    options: {max-size: "20m", max-file: "5"}
+
+services:
+  mediamtx:
+    <<: *common
+    image: bluenviron/mediamtx:${MEDIAMTX_TAG}
+    volumes: ["./configs/mediamtx.yml:/mediamtx.yml:ro"]
+
+  sim-publisher:                       # dev, CI, staging only
+    <<: *common
+    profiles: ["sim"]
+    image: ${REGISTRY}/occ-tools:${OCC_VERSION}
+    command: ["occ", "tools", "simulate", "--clips", "/clips",
+              "--rtsp", "rtsp://mediamtx:8554"]
+    volumes: ["./data/clips:/clips:ro"]
+    depends_on: [mediamtx]
+
+  webcam-publisher:                    # Linux only; on Windows run FFmpeg (dshow) on the host
+    <<: *common
+    profiles: ["webcam"]
+    image: ${REGISTRY}/occ-tools:${OCC_VERSION}
+    devices: ["/dev/video0:/dev/video0"]
+    command: ["ffmpeg", "-f", "v4l2", "-framerate", "10", "-video_size", "1280x720",
+              "-i", "/dev/video0", "-c:v", "libx264", "-preset", "ultrafast",
+              "-tune", "zerolatency", "-g", "20", "-f", "rtsp", "rtsp://mediamtx:8554/cam0"]
+    depends_on: [mediamtx]
+
+  engine:
+    <<: *common
+    image: ${REGISTRY}/occ-engine:${OCC_VERSION}
+    environment: {OCC_ENV: "${OCC_ENV:-production}"}
+    volumes:
+      - ./configs:/configs:ro
+      - ./models:/models:ro
+      - occ-data:/data
+    shm_size: "1gb"
+    deploy:
+      resources:
+        reservations:
+          devices: [{driver: nvidia, count: 1, capabilities: [gpu]}]
+    healthcheck:
+      test: ["CMD", "occ", "health", "http://localhost:9100/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 4
+      start_period: 60s
+    depends_on: [mediamtx]
+
+  api:
+    <<: *common
+    image: ${REGISTRY}/occ-api:${OCC_VERSION}
+    volumes:
+      - ./configs:/configs             # zone editor writes camera files here
+      - occ-data:/data                 # opened read-only; WAL readers still need the -shm file
+    ports: ["${API_BIND:-127.0.0.1}:8000:8000"]
+    healthcheck:
+      test: ["CMD", "occ", "health", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 4
+    depends_on:
+      engine: {condition: service_healthy}
+
+  backup:
+    <<: *common
+    image: ${REGISTRY}/occ-tools:${OCC_VERSION}
+    command: ["occ", "backup", "run", "--every", "24h", "--keep", "14"]
+    volumes: ["occ-data:/data", "./backups:/backups", "./configs:/configs:ro"]
+
+  proxy:
+    <<: *common
+    profiles: ["proxy"]
+    image: caddy:${CADDY_TAG}
+    ports: ["443:443"]
+    volumes: ["./deploy/caddy/Caddyfile:/etc/caddy/Caddyfile:ro", "caddy-data:/data"]
+    depends_on: [api]
+
+  prometheus:
+    <<: *common
+    profiles: ["monitoring"]
+    image: prom/prometheus:${PROMETHEUS_TAG}
+    volumes: ["./deploy/prometheus:/etc/prometheus:ro", "prom-data:/prometheus"]
+
+  grafana:
+    <<: *common
+    profiles: ["monitoring"]
+    image: grafana/grafana:${GRAFANA_TAG}
+    ports: ["${API_BIND:-127.0.0.1}:3000:3000"]
+    volumes: ["./deploy/grafana:/etc/grafana/provisioning:ro", "grafana-data:/var/lib/grafana"]
+
+volumes: {occ-data: {}, caddy-data: {}, prom-data: {}, grafana-data: {}}
+networks: {internal: {}}
+\end{lstlisting}
+File \file{docker-compose.dev.yml} ghi đè engine: bỏ phần đặt trước GPU, đặt \code{engine.backend: ort-cpu} và mô hình cỡ n, để chạy được trên laptop.
+
+\chapter{Dockerfile của engine}\label{app:docker}
+\begin{lstlisting}[language=dockerfile, caption={\file{docker/Dockerfile.engine}. Tag CUDA và phiên bản uv là ví dụ; đối chiếu bảng tương thích của ONNX Runtime trước khi chọn.}]
+# syntax=docker/dockerfile:1
+ARG CUDA_TAG=12.4.1-cudnn-runtime-ubuntu22.04
+FROM nvidia/cuda:${CUDA_TAG}
+ENV DEBIAN_FRONTEND=noninteractive PYTHONUNBUFFERED=1 UV_COMPILE_BYTECODE=1
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends python3 python3-venv ca-certificates \
+ && rm -rf /var/lib/apt/lists/*
+COPY --from=ghcr.io/astral-sh/uv:0.5.11 /uv /usr/local/bin/uv
+WORKDIR /app
+# dependencies first for layer caching; the "engine" extra has onnxruntime-gpu,
+# opencv-python-headless, numpy, shapely, a standalone ByteTrack - no torch, no ultralytics
+COPY pyproject.toml uv.lock ./
+RUN uv sync --frozen --no-dev --extra engine --no-install-project
+COPY src ./src
+RUN uv sync --frozen --no-dev --extra engine
+RUN useradd --uid 10001 --create-home occ && mkdir -p /data && chown occ /data
+USER occ
+ENV PATH="/app/.venv/bin:${PATH}"
+EXPOSE 9100
+ENTRYPOINT ["occ", "engine", "run", "--config-dir", "/configs"]
+\end{lstlisting}
+
+\chapter{Makefile}\label{app:make}
+\begin{lstlisting}[language=make, caption={\file{Makefile} (các lệnh chính)}]
+VERSION  ?= $(shell git describe --tags --always --dirty | sed 's/^v//')
+REGISTRY ?= ghcr.io/your-user
+COMPOSE  := docker compose --env-file .env
+
+setup:        ## dev environment
+	uv sync --all-extras && uv run pre-commit install
+lint:         ## ruff + mypy
+	uv run ruff check . && uv run ruff format --check . && uv run mypy src
+test:         ## unit + property + integration
+	uv run pytest tests/unit tests/property tests/integration -q \
+	  --cov=occ.analytics --cov-fail-under=90
+eval:         ## accuracy report from cached detections (no GPU)
+	uv run occ eval --split test --detections data/cache --out reports/eval.md
+bench:        ## benchmark matrix (GPU, several hours)
+	uv run python bench/run_bench.py --matrix bench/matrix.yaml --out bench/results
+chaos:        ## fault injection against a running stack
+	uv run pytest tests/chaos -q
+soak:         ## 24 h soak test
+	uv run python tests/soak/run_soak.py --hours 24
+build:
+	OCC_VERSION=$(VERSION) REGISTRY=$(REGISTRY) docker buildx bake
+up-dev:       ## whole stack on a laptop: CPU backend + simulated cameras
+	OCC_ENV=dev $(COMPOSE) -f docker-compose.yml -f docker-compose.dev.yml --profile sim up -d --build
+down:
+	$(COMPOSE) down
+logs:
+	$(COMPOSE) logs -f --tail=200
+deploy:
+	./deploy/deploy.sh --version $(VERSION)
+rollback:
+	./deploy/rollback.sh
+export-model: ## YOLO -> ONNX with dynamic batch, then FP16 copy (tools image has ultralytics)
+	docker run --rm --gpus all -v $(PWD)/models:/models $(REGISTRY)/occ-tools:$(VERSION) \
+	  sh -c "yolo export model=/models/yolo11s.pt format=onnx dynamic=True imgsz=640 && \
+	         occ tools onnx-fp16 /models/yolo11s.onnx /models/yolo11s-fp16.onnx"
+
+.PHONY: setup lint test eval bench chaos soak build up-dev down logs deploy rollback export-model
+\end{lstlisting}
+
+\chapter{Workflow CI}\label{app:ci}
+\begin{lstlisting}[language=yaml, caption={\file{.github/workflows/ci.yml} (rút gọn)}]
+name: ci
+on:
+  pull_request:
+  push:
+    branches: [main]
+    tags: ["v*.*.*"]
+
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - run: uv sync --all-extras --frozen
+      - run: make lint
+      - run: make test
+      - run: uv run occ eval --split fixture --detections tests/fixtures/detections
+               --check-baseline tests/fixtures/baseline.json
+
+  e2e:
+    needs: check
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - uses: docker/setup-buildx-action@v3
+      - run: uv sync --all-extras --frozen
+      - run: docker buildx bake --load ci
+      - run: OCC_ENV=production docker compose -f docker-compose.yml
+               -f docker-compose.ci.yml --profile sim up -d
+      - run: uv run pytest tests/e2e -q        # /ready, zone_live changes, API contract
+      - run: uv run pytest tests/privacy -q    # no image/video files, no BLOB, no secrets in logs
+      - if: always()
+        run: docker compose logs --no-color > compose.log
+
+  publish:
+    needs: e2e
+    if: github.event_name == 'push'
+    runs-on: ubuntu-24.04
+    permissions: {contents: read, packages: write}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with: {registry: ghcr.io, username: "${{ github.actor }}",
+               password: "${{ secrets.GITHUB_TOKEN }}"}
+      - name: version
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            echo "OCC_VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
+          else
+            echo "OCC_VERSION=sha-${GITHUB_SHA::7}" >> "$GITHUB_ENV"
+          fi
+      - run: docker buildx bake --push release
+
+  release:
+    needs: publish
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-24.04
+    permissions: {contents: write}
+    steps:
+      - uses: actions/checkout@v4
+      - run: ./deploy/make_bundle.sh "${GITHUB_REF_NAME#v}"
+      - run: gh release create "$GITHUB_REF_NAME" dist/*.tar.gz --notes-file dist/RELEASE_NOTES.md
+        env: {GH_TOKEN: "${{ secrets.GITHUB_TOKEN }}"}
+\end{lstlisting}
+
+\chapter{Tài liệu tham khảo}\label{app:ref}
+\begin{enumerate}[label={[\arabic*]}, leftmargin=2.2em]
+  \item Ultralytics, \emph{Export} và \emph{Multi-Object Tracking}. \url{https://docs.ultralytics.com/modes/export/}, \url{https://docs.ultralytics.com/modes/track/}
+  \item Y. Zhang và cộng sự, \emph{ByteTrack: Multi-Object Tracking by Associating Every Detection Box}, ECCV 2022. \url{https://github.com/ifzhang/ByteTrack}
+  \item Roboflow, \emph{supervision} (có cài đặt ByteTrack độc lập). \url{https://github.com/roboflow/supervision}
+  \item ONNX Runtime, \emph{CUDA Execution Provider}. \url{https://onnxruntime.ai/docs/execution-providers/CUDA-ExecutionProvider.html}
+  \item MediaMTX. \url{https://github.com/bluenviron/mediamtx}; FFmpeg documentation. \url{https://ffmpeg.org/ffmpeg.html}
+  \item SQLite, \emph{Write-Ahead Logging} và \emph{Online Backup API}. \url{https://www.sqlite.org/wal.html}, \url{https://www.sqlite.org/backup.html}
+  \item Alembic. \url{https://alembic.sqlalchemy.org/}; Shapely. \url{https://shapely.readthedocs.io/}
+  \item FastAPI. \url{https://fastapi.tiangolo.com/}
+  \item Docker Compose. \url{https://docs.docker.com/compose/}; NVIDIA Container Toolkit, \emph{Installation Guide}.
+        \url{https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html}
+  \item Prometheus. \url{https://prometheus.io/docs/}
+  \item Hypothesis. \url{https://hypothesis.readthedocs.io/}; Schemathesis. \url{https://schemathesis.readthedocs.io/}
+  \item CVAT, công cụ gán nhãn ảnh và video. \url{https://github.com/cvat-ai/cvat}
+  \item uv. \url{https://docs.astral.sh/uv/}
+  \item Semantic Versioning. \url{https://semver.org/}; Conventional Commits. \url{https://www.conventionalcommits.org/}
+\end{enumerate}
+
+\end{document}

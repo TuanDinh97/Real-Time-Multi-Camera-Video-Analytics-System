@@ -1,12 +1,14 @@
-
-[build-system]
-requires = ["setuptools>=68"]
-build-backend = "setuptools.build_meta"
-
 [project]
 name = "mcva"
 version = "0.1.0"
 requires-python = ">=3.10"
+dependencies = [
+    "ultralytics>=8.3",     # YOLO11 có từ 8.3.0
+    "torch>=2.0",           # gọi torch.cuda.is_available()
+    "opencv-python>=4.8",   # import cv2
+]
 
-[tool.setuptools.packages.find]
-where = ["src"]
+[project.optional-dependencies]
+oak = [
+    "depthai>=3.0",         # dai.node.Camera().build() là API của v3
+]
