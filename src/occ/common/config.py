@@ -1,6 +1,8 @@
 """Configuration models (spec: Cấu hình, D6)."""
 
+from datetime import date
 from typing import Annotated, Literal, Self
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import shapely
 from pydantic import AfterValidator, BaseModel, ConfigDict, Field, model_validator
@@ -84,4 +86,84 @@ class CameraConfig(StrictModel):
         duplicates = sorted({i for i in zone_ids if zone_ids.count(i) > 1})
         if duplicates:
             raise ValueError(f"duplicate zone id(s): {', '.join(duplicates)}")
+        return self
+
+
+# ---------------------------------------------------------------- site.yaml
+
+_DAY = "(mon|tue|wed|thu|fri|sat|sun)"
+DayKey = Annotated[str, Field(pattern=rf"^{_DAY}(-{_DAY})?$")]
+
+_HHMM = r"([01]\d|2[0-3]):[0-5]\d"
+
+
+def _check_time_range(value: str) -> str:
+    """'07:30-21:00': start must be before end."""
+    start, end = value.split("-")
+    if start >= end:
+        raise ValueError(f"start must be before end, got {value!r}")
+    return value
+
+
+TimeRange = Annotated[str, Field(pattern=rf"^{_HHMM}-{_HHMM}$"), AfterValidator(_check_time_range)]
+
+
+def _check_timezone(name: str) -> str:
+    try:
+        ZoneInfo(name)
+    except (ZoneInfoNotFoundError, ValueError) as exc:
+        raise ValueError(f"unknown timezone {name!r}") from exc
+    return name
+
+
+Timezone = Annotated[str, AfterValidator(_check_timezone)]
+
+
+class SiteInfo(StrictModel):
+    id: Id
+    name: str = Field(min_length=1)
+    timezone: Timezone
+
+
+class SpaceConfig(StrictModel):
+    id: Id
+    name: str = Field(min_length=1)
+    capacity: int = Field(ge=1)
+
+
+class EngineConfig(StrictModel):
+    backend: Literal["ort-cuda", "ort-cpu", "torch"] = "ort-cuda"
+    model: str = Field(min_length=1)
+    imgsz: int = Field(default=640, ge=32, multiple_of=32)
+    fp16: bool = True
+    max_batch: int = Field(default=8, ge=1, le=64)
+    batch_wait_ms: int = Field(default=50, ge=0, le=1000)
+
+
+class RetentionConfig(StrictModel):
+    occupancy_10s_days: int = Field(default=30, ge=1)
+    occupancy_1m_days: int = Field(default=400, ge=1)
+    sessions_days: int = Field(default=400, ge=1)
+
+
+class PrivacyConfig(StrictModel):
+    debug_save_frames: bool = False
+
+
+class SiteConfig(StrictModel):
+    schema_version: Literal[1]
+    site: SiteInfo
+    spaces: list[SpaceConfig] = Field(min_length=1)
+    opening_hours: dict[DayKey, list[TimeRange]]
+    holidays: list[date] = Field(default_factory=list)
+    engine: EngineConfig
+    retention: RetentionConfig = Field(default_factory=RetentionConfig)
+    privacy: PrivacyConfig = Field(default_factory=PrivacyConfig)
+
+    @model_validator(mode="after")
+    def _space_ids_are_unique(self) -> Self:
+        space_ids = [s.id for s in self.spaces]
+        duplicates = sorted({i for i in space_ids if space_ids.count(i) > 1})
+        if duplicates:
+            raise ValueError(f"duplicate space id(s): {', '.join(duplicates)}")
         return self

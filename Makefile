@@ -1,4 +1,4 @@
-.PHONY: setup lint test
+.PHONY: setup lint test format
 
 setup:  ## cài môi trường dev và git hook
 	uv sync --all-extras

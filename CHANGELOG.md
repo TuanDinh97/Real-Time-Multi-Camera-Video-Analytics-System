@@ -11,12 +11,13 @@ phiên bản theo [Semantic Versioning](https://semver.org/).
 - Công cụ kiểm tra chất lượng: ruff, mypy (strict), pytest, pre-commit, Makefile.
 - Lint cấm `cv2.imwrite` và `cv2.VideoWriter` ngoài `occ/tools/` (quyền riêng tư).
 - Giấy phép AGPL-3.0, README, tài liệu phần cứng.
+- Model cấu hình camera (Pydantic): kiểm tra kiểu, giới hạn giá trị, từ chối trường lạ.
+- Model vùng và vùng loại trừ: kiểm tra đa giác (ít nhất 3 điểm, không tự cắt), id vùng không trùng trong một camera.
 
 ### Changed
 - Đổi trọng tâm dự án từ đếm lượt qua vạch sang đếm số người theo vùng (đặc tả mới thay cho brief v2.0).
 - Đổi tên package `mcva` thành `occ`; quản lý thư viện bằng uv, ghim phiên bản trong `uv.lock`.
+- Model cấu hình site: múi giờ, không gian, giờ mở cửa, ngày nghỉ, engine, lưu giữ dữ liệu.
 
 ### Removed
 - File trọng số model và các file sinh tự động khỏi git.
-- Model cấu hình camera (Pydantic): kiểm tra kiểu, giới hạn giá trị, từ chối trường lạ.
-- Model vùng và vùng loại trừ: kiểm tra đa giác (ít nhất 3 điểm, không tự cắt), id vùng không trùng trong một camera.
